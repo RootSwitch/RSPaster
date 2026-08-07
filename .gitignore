@@ -1,0 +1,6 @@
+.claude/
+*.log
+
+# Build output. Build-RSPaster.cmd regenerates it from the .cs sources.
+*.exe
+*.pdb
