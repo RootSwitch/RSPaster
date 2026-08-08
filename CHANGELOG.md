@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+**Added a delay between lines.** Multi-line command lists sent to a slow or
+busy machine lost every line after the first: the next line was typed into a
+shell still working on the previous command, so it went nowhere. A checkbox and
+a seconds field now hold after each Enter before the next line is typed. The
+wait is only taken between lines, never after the last one, where it would just
+postpone the finish.
+
+The wait is slept in 100 ms slices rather than one long `Thread.Sleep`, because
+a 15 second sleep leaves Esc, Cancel and the hotkey looking dead for the whole
+of it. Cancelling a 30 second wait returns immediately. The status bar and the
+tray tooltip count the remaining seconds down and name the line about to be
+typed, since the window is often hidden while this runs.
+
 **First working version.** A GUI that types multi-line text into the focused
 window through `SendInput`, for consoles that ignore the clipboard: hypervisor
 VM consoles, VNC, IPMI/BMC KVM, and UAC prompts on the normal desktop. Runs

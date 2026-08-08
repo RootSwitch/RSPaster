@@ -38,6 +38,7 @@ Then:
 |---|---|---|
 | Start delay | 3 s | Countdown before typing begins, so you can focus the target. |
 | Key delay | 15 ms | Pause between keystrokes. Raise it to 30 - 50 ms if a slow BMC drops characters. |
+| Delay between lines | off, 15 s | Waits after each Enter before typing the next line, for machines where a command needs time to finish before the next can be entered. |
 | Press Enter at end | off | Appends a newline so the last line is submitted. |
 | Clear after typing | off | Wipes the box once typing finishes. |
 | Always on top | on | Keeps the window above the console. |
@@ -67,6 +68,15 @@ screen area first: their surrounding toolbars do not forward keys to the guest.
 **Raise the key delay over slow links.** BMC and IPMI KVM consoles drop
 keystrokes sent faster than they can process. Missing characters almost always
 mean the key delay is too low.
+
+**Key delay and line delay solve different problems.** Key delay is about the
+console keeping up with the typing. Line delay is about the *machine* keeping
+up with the work: on a slow or busy box, a command has to finish before the
+next one can be entered, and without a pause the following line is typed into a
+shell that is not ready and is simply lost. Set it to comfortably more than the
+slowest command in the list. The status bar counts the wait down, and Esc, the
+hotkey and Cancel all stay responsive throughout, so an over-long delay costs
+nothing but the time you choose to let run.
 
 **Elevation.** Windows blocks a normal process from sending input to a window
 running at higher privilege. If the target is elevated and nothing arrives, use

@@ -24,6 +24,8 @@ namespace RSPaster
         public string Theme = "classic";
         public int StartDelaySeconds = 3;
         public int KeyDelayMs = 15;
+        public bool LineDelayEnabled;
+        public int LineDelaySeconds = 15;
         public bool EnterAtEnd;
         public bool ClearAfter;
         public bool AlwaysOnTop = true;
@@ -65,6 +67,8 @@ namespace RSPaster
             s.Theme = Str(kv, "theme", s.Theme);
             s.StartDelaySeconds = Int(kv, "startDelaySeconds", s.StartDelaySeconds, 0, 60);
             s.KeyDelayMs = Int(kv, "keyDelayMs", s.KeyDelayMs, 0, 500);
+            s.LineDelayEnabled = Bool(kv, "lineDelayEnabled", s.LineDelayEnabled);
+            s.LineDelaySeconds = Int(kv, "lineDelaySeconds", s.LineDelaySeconds, 0, 600);
             s.EnterAtEnd = Bool(kv, "enterAtEnd", s.EnterAtEnd);
             s.ClearAfter = Bool(kv, "clearAfter", s.ClearAfter);
             s.AlwaysOnTop = Bool(kv, "alwaysOnTop", s.AlwaysOnTop);
@@ -84,6 +88,8 @@ namespace RSPaster
                 Write(sb, "theme", Theme);
                 Write(sb, "startDelaySeconds", StartDelaySeconds.ToString(CultureInfo.InvariantCulture));
                 Write(sb, "keyDelayMs", KeyDelayMs.ToString(CultureInfo.InvariantCulture));
+                Write(sb, "lineDelayEnabled", LineDelayEnabled ? "true" : "false");
+                Write(sb, "lineDelaySeconds", LineDelaySeconds.ToString(CultureInfo.InvariantCulture));
                 Write(sb, "enterAtEnd", EnterAtEnd ? "true" : "false");
                 Write(sb, "clearAfter", ClearAfter ? "true" : "false");
                 Write(sb, "alwaysOnTop", AlwaysOnTop ? "true" : "false");

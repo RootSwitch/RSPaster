@@ -38,8 +38,11 @@ namespace RSPaster
         bool _syncing;
         SpinBox _startDelay;
         SpinBox _keyDelay;
+        SpinBox _lineDelay;
         Label _lblStart;
         Label _lblKey;
+        Label _lblLineUnit;
+        ThemedCheck _chkLineDelay;
         ThemedCheck _chkUnicode;
         ThemedCheck _chkEnterAtEnd;
         ThemedCheck _chkClearAfter;
@@ -75,8 +78,8 @@ namespace RSPaster
             Text = _baseTitle;
             ClientSize = new Size(
                 _settings.WindowWidth >= 520 ? _settings.WindowWidth : 600,
-                _settings.WindowHeight >= 420 ? _settings.WindowHeight : 500);
-            MinimumSize = new Size(520, 460);
+                _settings.WindowHeight >= 500 ? _settings.WindowHeight : 530);
+            MinimumSize = new Size(520, 500);
             StartPosition = FormStartPosition.CenterScreen;
             KeyPreview = true;
             TopMost = _settings.AlwaysOnTop;
@@ -224,7 +227,7 @@ namespace RSPaster
 
             _bottom = new Panel();
             _bottom.Dock = DockStyle.Bottom;
-            _bottom.Height = 122;
+            _bottom.Height = 152;
             _bottom.Padding = new Padding(0, 10, 0, 0);
 
             _lblStart = MakeLabel("Start delay (s)", 0, 16);
@@ -235,16 +238,34 @@ namespace RSPaster
             _keyDelay = new SpinBox(0, 500, _settings.KeyDelayMs);
             _keyDelay.SetBounds(268, 10, 64, 27);
 
-            _chkUnicode = MakeCheck("Unicode mode", 350, 13, _settings.UnicodeMode);
             ToolTip tip = new ToolTip();
+
+            _chkUnicode = MakeCheck("Unicode mode", 350, 13, _settings.UnicodeMode);
             tip.SetToolTip(_chkUnicode,
                 "Send every character as a unicode event instead of scancodes.\r\n" +
                 "Use this if the typed output comes out garbled, which means the\r\n" +
                 "target's keyboard layout differs from yours.");
 
-            _chkEnterAtEnd = MakeCheck("Press Enter at end", 0, 48, _settings.EnterAtEnd);
-            _chkClearAfter = MakeCheck("Clear after typing", 148, 48, _settings.ClearAfter);
-            _chkOnTop = MakeCheck("Always on top", 296, 48, _settings.AlwaysOnTop);
+            _chkLineDelay = MakeCheck("Delay between lines", 0, 48, _settings.LineDelayEnabled);
+            _lineDelay = new SpinBox(0, 600, _settings.LineDelaySeconds);
+            _lineDelay.SetBounds(176, 45, 64, 27);
+            _lineDelay.Enabled = _settings.LineDelayEnabled;
+            _lblLineUnit = MakeLabel("seconds", 248, 51);
+            _chkLineDelay.CheckedChanged += delegate(object s, EventArgs e)
+            {
+                _lineDelay.Enabled = _chkLineDelay.Checked;
+            };
+            string lineDelayHelp =
+                "Wait after each Enter before typing the next line.\r\n" +
+                "For slow or busy machines where a command needs time to\r\n" +
+                "finish before the next one can be entered. Cancel stays\r\n" +
+                "responsive during the wait.";
+            tip.SetToolTip(_chkLineDelay, lineDelayHelp);
+            tip.SetToolTip(_lineDelay, lineDelayHelp);
+
+            _chkEnterAtEnd = MakeCheck("Press Enter at end", 0, 82, _settings.EnterAtEnd);
+            _chkClearAfter = MakeCheck("Clear after typing", 148, 82, _settings.ClearAfter);
+            _chkOnTop = MakeCheck("Always on top", 296, 82, _settings.AlwaysOnTop);
             _chkOnTop.CheckedChanged += delegate(object s, EventArgs e)
             {
                 TopMost = _chkOnTop.Checked;
@@ -253,7 +274,7 @@ namespace RSPaster
             _btnGo = new ThemedButton();
             _btnGo.Primary = true;
             _btnGo.Font = new Font("Segoe UI", 9.75F, FontStyle.Bold);
-            _btnGo.SetBounds(0, 78, 100, 36);
+            _btnGo.SetBounds(0, 110, 100, 36);
             _btnGo.Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top;
             _btnGo.Click += delegate(object s, EventArgs e) { StartOrCancel(); };
 
@@ -262,6 +283,9 @@ namespace RSPaster
             _bottom.Controls.Add(_lblKey);
             _bottom.Controls.Add(_keyDelay);
             _bottom.Controls.Add(_chkUnicode);
+            _bottom.Controls.Add(_chkLineDelay);
+            _bottom.Controls.Add(_lineDelay);
+            _bottom.Controls.Add(_lblLineUnit);
             _bottom.Controls.Add(_chkEnterAtEnd);
             _bottom.Controls.Add(_chkClearAfter);
             _bottom.Controls.Add(_chkOnTop);
@@ -541,6 +565,8 @@ namespace RSPaster
         {
             _settings.StartDelaySeconds = _startDelay.Value;
             _settings.KeyDelayMs = _keyDelay.Value;
+            _settings.LineDelayEnabled = _chkLineDelay.Checked;
+            _settings.LineDelaySeconds = _lineDelay.Value;
             _settings.EnterAtEnd = _chkEnterAtEnd.Checked;
             _settings.ClearAfter = _chkClearAfter.Checked;
             _settings.AlwaysOnTop = _chkOnTop.Checked;
@@ -625,25 +651,27 @@ namespace RSPaster
 
             string text = _txtInput.Text;
             if (_chkEnterAtEnd.Checked) text += "\n";
-            int keyDelay = _keyDelay.Value;
-            bool unicodeMode = _chkUnicode.Checked;
+
+            TypeOptions options = new TypeOptions();
+            options.PerKeyDelayMs = _keyDelay.Value;
+            options.UnicodeMode = _chkUnicode.Checked;
+            options.LineDelayMs = _chkLineDelay.Checked ? _lineDelay.Value * 1000 : 0;
+            options.Cancelled = delegate() { return _cancelRequested; };
+            options.Progress = delegate(int done, int total)
+            {
+                Report(string.Format(CultureInfo.InvariantCulture,
+                    "Typing... {0}/{1} characters", done, total));
+            };
+            options.LineWait = delegate(int msLeft, int nextLine, int totalLines)
+            {
+                Report(string.Format(CultureInfo.InvariantCulture,
+                    "Waiting {0}s before line {1} of {2}. Esc cancels.",
+                    (msLeft + 999) / 1000, nextLine, totalLines));
+            };
 
             Thread worker = new Thread(delegate()
             {
-                TypeResult result = KeySender.TypeText(text, keyDelay, unicodeMode,
-                    delegate() { return _cancelRequested; },
-                    delegate(int done, int total)
-                    {
-                        try
-                        {
-                            BeginInvoke(new Action(delegate()
-                            {
-                                SetStatus(string.Format(CultureInfo.InvariantCulture,
-                                    "Typing... {0}/{1} characters", done, total));
-                            }));
-                        }
-                        catch (InvalidOperationException) { }   // form closed mid-run
-                    });
+                TypeResult result = KeySender.TypeText(text, options);
                 try
                 {
                     BeginInvoke(new Action(delegate() { FinishTyping(result); }));
@@ -706,6 +734,17 @@ namespace RSPaster
             _trayType.Text = _state == RunState.Idle ? "Type after delay" : "Cancel";
         }
 
+        // Status from the typing thread. Marshals to the UI thread and tolerates
+        // the window being closed mid-run.
+        void Report(string text)
+        {
+            try
+            {
+                BeginInvoke(new Action(delegate() { SetStatus(text); }));
+            }
+            catch (InvalidOperationException) { }
+        }
+
         // The tray tooltip carries the same text as the status bar, because the
         // window is often hidden while the countdown runs.
         void SetStatus(string text)
@@ -719,6 +758,8 @@ namespace RSPaster
             _txtInput.ReadOnly = !enabled;
             _startDelay.Enabled = enabled;
             _keyDelay.Enabled = enabled;
+            _chkLineDelay.Enabled = enabled;
+            _lineDelay.Enabled = enabled && _chkLineDelay.Checked;
             _chkEnterAtEnd.Enabled = enabled;
             _chkClearAfter.Enabled = enabled;
             _chkUnicode.Enabled = enabled;

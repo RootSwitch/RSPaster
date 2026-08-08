@@ -129,6 +129,19 @@ namespace RSPaster
         public bool Cancelled;
     }
 
+    public class TypeOptions
+    {
+        public int PerKeyDelayMs = 15;
+        // Pause after each Enter before the next line is typed, for consoles
+        // where a command needs time to finish before the next can be entered.
+        public int LineDelayMs;
+        public bool UnicodeMode;
+
+        public Func<bool> Cancelled;
+        public Action<int, int> Progress;          // characters done, total
+        public Action<int, int, int> LineWait;     // ms remaining, next line, total lines
+    }
+
     public static class KeySender
     {
         const ushort VK_SHIFT = 0x10;
@@ -142,13 +155,24 @@ namespace RSPaster
         // what VM/IPMI/VNC consoles listen for; characters needing AltGr or
         // absent from the layout fall back to a KEYEVENTF_UNICODE event. In
         // unicode mode every character is sent as a unicode event.
-        public static TypeResult TypeText(string text, int perKeyDelayMs, bool unicodeMode,
-                                          Func<bool> cancelled, Action<int, int> progress)
+        public static TypeResult TypeText(string text, TypeOptions o)
         {
             text = text.Replace("\r\n", "\n").Replace("\r", "\n");
             IntPtr hkl = ForegroundLayout();
             TypeResult result = new TypeResult();
             int total = text.Length;
+
+            Func<bool> cancelled = o.Cancelled;
+            Action<int, int> progress = o.Progress;
+            bool unicodeMode = o.UnicodeMode;
+            int perKeyDelayMs = o.PerKeyDelayMs;
+
+            // A trailing newline is the "press Enter at end" one and does not
+            // start another line, so it must not inflate the count.
+            int totalLines = 1;
+            for (int i = 0; i < total; i++)
+                if (text[i] == '\n' && i < total - 1) totalLines++;
+            int lineNo = 1;
 
             for (int i = 0; i < total; i++)
             {
@@ -197,8 +221,41 @@ namespace RSPaster
                     progress(i + 1, total);
                 if (perKeyDelayMs > 0)
                     Thread.Sleep(perKeyDelayMs);
+
+                // Hold after the Enter that ends a line, but not after the last
+                // one: nothing follows it, so waiting only delays the finish.
+                if (c == '\n' && o.LineDelayMs > 0 && i < total - 1)
+                {
+                    lineNo++;
+                    if (!Wait(o.LineDelayMs, cancelled, o.LineWait, lineNo, totalLines))
+                    {
+                        result.Cancelled = true;
+                        break;
+                    }
+                }
             }
             return result;
+        }
+
+        // Sleeps in short slices so Cancel stays responsive: a line delay is
+        // measured in seconds, and one long Thread.Sleep would leave Esc and
+        // the hotkey looking dead for the whole of it. Returns false if the run
+        // was cancelled while waiting.
+        static bool Wait(int totalMs, Func<bool> cancelled,
+                         Action<int, int, int> tick, int lineNo, int totalLines)
+        {
+            const int SLICE = 100;
+            int waited = 0;
+            while (waited < totalMs)
+            {
+                if (cancelled != null && cancelled()) return false;
+                if (tick != null && waited % 1000 == 0)
+                    tick(totalMs - waited, lineNo, totalLines);
+                int slice = Math.Min(SLICE, totalMs - waited);
+                Thread.Sleep(slice);
+                waited += slice;
+            }
+            return true;
         }
 
         static bool SendVk(ushort vk, bool shift, IntPtr hkl)
