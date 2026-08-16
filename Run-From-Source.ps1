@@ -1,5 +1,12 @@
-# Launches RSPaster by compiling the C# sources in memory with Add-Type.
+# Runs RSPaster from the .cs sources, compiling them in memory with Add-Type.
 # Needs only Windows PowerShell 5.1 / .NET Framework 4.x, both inbox on Win 10/11.
+#
+# This is the no-binary path: same app as RSPaster.exe, but slower to start and
+# heavier in memory because it compiles on every launch. Build-RSPaster.cmd
+# produces the exe, which is what to use day to day.
+#
+# Normally launched by Run-From-Source.cmd, since Windows opens a .ps1 in an
+# editor on double-click rather than running it.
 
 $scriptPath = $MyInvocation.MyCommand.Path
 $root = Split-Path -Parent $scriptPath

@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+**Renamed `RSPaster.cmd` to `Run-From-Source.cmd`, and the `.ps1` with it.**
+`RSPaster.cmd` sitting beside `RSPaster.exe` read as two variants of the same
+thing, when one is the app and the other compiles the app from source on every
+launch; `Build-RSPaster.cmd` then looked like a sibling of `RSPaster.cmd` while
+doing something else entirely. The three files now say what they do:
+`RSPaster.exe` runs it, `Run-From-Source.cmd` runs it without the exe,
+`Build-RSPaster.cmd` builds the exe.
+
+The README opens with a "Which file do I run?" table and the measured cost of
+each path, since the difference is not obvious from the outside: the exe shows
+its window in 0.7 s against 2.8 s and holds 38 MB against 95 MB, because the
+source path pays for a compile and a PowerShell host on every launch. It also
+appears in Task Manager as `powershell` rather than `RSPaster`. The source path
+is kept because it ships no binary, which is what a recipient wary of an
+unsigned exe, or a machine that blocks one, actually needs.
+
 **Added `tools/Make-Dist.ps1`, which packages `dist/RSPaster.zip`.** Handing
 the tool to someone meant copying the whole working folder, `.git` and all. The
 zip carries the exe, the five sources, both launchers, the build script, README

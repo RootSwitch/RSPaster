@@ -11,21 +11,47 @@ No dependencies beyond a stock Windows 10 or 11 install. It uses the .NET
 Framework 4.x and the C# compiler that are already on the machine, so there is
 nothing to download and no runtime to install.
 
+## Which file do I run?
+
+| File | Job |
+|---|---|
+| **`RSPaster.exe`** | **The app. Use this one.** |
+| `Run-From-Source.cmd` | Runs the same app without the exe, compiling the sources on launch. |
+| `Build-RSPaster.cmd` | Not a launcher. Builds `RSPaster.exe` from the sources. |
+
+`Run-From-Source.cmd` and `RSPaster.exe` are not two programs. They are the same
+program, either compiled fresh on every launch or compiled once ahead of time.
+Identical behaviour, identical features. What differs is the cost:
+
+| | `RSPaster.exe` | `Run-From-Source.cmd` |
+|---|---|---|
+| Window appears in | 0.7 s | 2.8 s |
+| Memory | 38 MB | 95 MB |
+| Shows in Task Manager as | `RSPaster` | `powershell` |
+| Needs | nothing | the five `.cs` files beside it |
+| SmartScreen and antivirus | can flag an unsigned exe | ships no binary |
+
+Prefer the exe. The source path is there for handing the tool to someone who
+will not run an unknown binary, for machines that block unsigned ones, and for
+editing a `.cs` file and seeing the change without a build step.
+
+(`Run-From-Source.ps1` does the actual work; the `.cmd` is only a
+double-clickable wrapper, because Windows opens a `.ps1` in an editor rather
+than running it.)
+
 ## Quickstart
 
-**Run it from source, no build:** double-click **`RSPaster.cmd`**. It compiles
-the sources in memory through PowerShell and shows the window.
+If the zip came with `RSPaster.exe`, run it. Nothing to install.
 
-**Or build a standalone exe:** run **`Build-RSPaster.cmd`** once. It finds the
+To build the exe yourself, run **`Build-RSPaster.cmd`** once. It finds the
 in-box compiler at `%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\csc.exe` and
-writes `RSPaster.exe`, which you can copy anywhere and run on its own.
-
-Both paths run identical code from the same `.cs` files.
+writes `RSPaster.exe` beside the sources. To skip the binary entirely,
+double-click **`Run-From-Source.cmd`**.
 
 **To hand it to someone else:** run `tools\Make-Dist.ps1`. It rebuilds the exe
 and writes `dist\RSPaster.zip` holding only what is needed to run or rebuild,
 about 70 KB. Unzip it anywhere and run `RSPaster.exe`, or double-click
-`RSPaster.cmd` to run from source without the binary at all. Nothing is
+`Run-From-Source.cmd` to run without the binary at all. Nothing is
 installed and nothing is written outside `%APPDATA%\RSPaster`, so uninstalling
 is deleting the folder.
 
@@ -105,7 +131,7 @@ desktop.
 | `Themes.cs` | The palette table, ported from the Canvas Suite. |
 | `Controls.cs` | Owner-drawn themed controls and the custom scrollbar. |
 | `Settings.cs` | Preference load and save. |
-| `RSPaster.ps1` / `.cmd` | Run from source. |
+| `Run-From-Source.cmd` / `.ps1` | Run without the exe, compiling on launch. |
 | `Build-RSPaster.cmd` | Compile the exe with the in-box compiler. |
 | `tools/charcheck.ps1` | Style check: fails on em-dashes and en-dashes. |
 | `tools/Make-Dist.ps1` | Builds `dist/RSPaster.zip`, the run-or-rebuild file set. |

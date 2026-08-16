@@ -796,8 +796,8 @@ namespace RSPaster
 
     public static class Program
     {
-        // Set by RSPaster.ps1 so "Restart as Admin" relaunches the script.
-        // Left null when running as the compiled exe.
+        // Set by Run-From-Source.ps1 so "Restart as Admin" relaunches the
+        // script. Left null when running as the compiled exe.
         public static string RelaunchFile;
         public static string RelaunchArgs;
 
