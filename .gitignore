@@ -4,3 +4,6 @@
 # Build output. Build-RSPaster.cmd regenerates it from the .cs sources.
 *.exe
 *.pdb
+
+# Distribution zip. tools\Make-Dist.ps1 regenerates it.
+dist/

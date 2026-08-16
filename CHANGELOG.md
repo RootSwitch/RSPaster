@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+**Added `tools/Make-Dist.ps1`, which packages `dist/RSPaster.zip`.** Handing
+the tool to someone meant copying the whole working folder, `.git` and all. The
+zip carries the exe, the five sources, both launchers, the build script, README
+and LICENSE: enough to run it, and enough to audit or rebuild it. Around 70 KB.
+
+It rebuilds the exe before packaging rather than zipping whatever binary is
+lying around, because a distribution whose exe does not match the sources
+beside it is worse than one with no exe. A missing file aborts the run and names
+itself, and the abort happens before the previous zip is touched, so a failed
+run cannot leave a half-built artifact where a good one was.
+
 **Added a delay between lines.** Multi-line command lists sent to a slow or
 busy machine lost every line after the first: the next line was typed into a
 shell still working on the previous command, so it went nowhere. A checkbox and

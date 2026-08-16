@@ -22,6 +22,13 @@ writes `RSPaster.exe`, which you can copy anywhere and run on its own.
 
 Both paths run identical code from the same `.cs` files.
 
+**To hand it to someone else:** run `tools\Make-Dist.ps1`. It rebuilds the exe
+and writes `dist\RSPaster.zip` holding only what is needed to run or rebuild,
+about 70 KB. Unzip it anywhere and run `RSPaster.exe`, or double-click
+`RSPaster.cmd` to run from source without the binary at all. Nothing is
+installed and nothing is written outside `%APPDATA%\RSPaster`, so uninstalling
+is deleting the folder.
+
 Then:
 
 1. Paste your text into the box.
@@ -101,3 +108,4 @@ desktop.
 | `RSPaster.ps1` / `.cmd` | Run from source. |
 | `Build-RSPaster.cmd` | Compile the exe with the in-box compiler. |
 | `tools/charcheck.ps1` | Style check: fails on em-dashes and en-dashes. |
+| `tools/Make-Dist.ps1` | Builds `dist/RSPaster.zip`, the run-or-rebuild file set. |
