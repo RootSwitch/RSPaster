@@ -1,0 +1,97 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<!-- Source for docs/social-preview.png, GitHub's 1280x640 card. Rendered by:
+       powershell -File tools\Render-Png.ps1 -Html docs\src\social.html `
+           -Out docs\social-preview.png -Width 1280 -Height 640
+     Type sizes are set for the small card GitHub actually renders, not for
+     viewing the PNG at full size. Colors are the Classic palette. -->
+<style>
+  html, body {
+    margin: 0;
+    width: 1280px;
+    height: 640px;
+    overflow: hidden;
+    background: #1b1e25;
+    font-family: "Segoe UI", system-ui, sans-serif;
+    color: #e6e9ef;
+  }
+  .card { display: flex; width: 1280px; height: 640px; }
+
+  .left {
+    box-sizing: border-box;
+    width: 700px;
+    padding: 74px 0 74px 76px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .brand { display: flex; align-items: center; gap: 22px; margin-bottom: 26px; }
+  .brand svg { width: 76px; height: 76px; display: block; }
+  .name { font-size: 68px; font-weight: 600; letter-spacing: 0.5px; }
+  .tag { font-size: 31px; line-height: 1.34; color: #e6e9ef; margin-bottom: 30px; }
+  .tag .hl { color: #4c8bf5; font-weight: 600; }
+  ul { margin: 0; padding: 0; list-style: none; }
+  li {
+    font-size: 22px;
+    line-height: 1.72;
+    color: #9aa3b2;
+    padding-left: 30px;
+    position: relative;
+  }
+  li::before {
+    content: "";
+    position: absolute;
+    left: 4px; top: 15px;
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: #2e9b57;
+  }
+
+  .right { position: relative; width: 580px; height: 640px; overflow: hidden; }
+  /* A real capture, cropped rather than mocked up. Shifted left so the frame
+     bleeds off the card edge instead of floating in the middle. */
+  .shot {
+    position: absolute;
+    top: 62px; left: 30px;
+    width: 602px; height: 562px;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 18px 48px rgba(0,0,0,0.55);
+  }
+  .shot img { width: 602px; height: 562px; display: block; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="left">
+      <div class="brand">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+          <rect width="64" height="64" rx="12" fill="#262a33"/>
+          <rect x="14" y="13" width="36" height="42" rx="5" fill="none" stroke="#4c8bf5" stroke-width="4"/>
+          <rect x="24" y="7" width="16" height="10" rx="3" fill="#2e9b57"/>
+          <path d="M23 29 L31 36 L23 43" fill="none" stroke="#2e9b57" stroke-width="4"
+                stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M35 44 L44 44" fill="none" stroke="#2e9b57" stroke-width="4" stroke-linecap="round"/>
+        </svg>
+        <div class="name">RSPaster</div>
+      </div>
+      <!-- The break is explicit so the highlighted phrase never splits across
+           two lines, which is what auto-wrapping did at this width. -->
+      <div class="tag">
+        Types multi-line text into consoles<br>
+        that <span class="hl">refuse to paste</span>.
+      </div>
+      <ul>
+        <li>Hypervisor, VNC and IPMI KVM consoles</li>
+        <li>Waits between lines on slow machines</li>
+        <li>No install, no dependencies, 30 themes</li>
+      </ul>
+    </div>
+    <div class="right">
+      <div class="shot"><img src="panels/1-classic.png" alt=""></div>
+    </div>
+  </div>
+</body>
+</html>

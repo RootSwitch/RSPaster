@@ -1,15 +1,34 @@
-﻿# RSPaster
+﻿# RSPaster - Type Into Consoles That Will Not Paste
 
-Types multi-line text into whatever window has focus, as if from a physical
-keyboard, for the consoles that will not take a clipboard paste. Built for
-hypervisor VM consoles, VNC viewers, IPMI/BMC KVM sessions and UAC prompts,
-where reviewing a long command before sending it is most of the work.
+> Hypervisor consoles, VNC viewers and IPMI KVM sessions ignore your clipboard.
+> RSPaster types the text instead, one real keystroke at a time, after a
+> countdown long enough to put focus where you need it.
 
-![RSPaster](docs/screenshot.png)
+![Four RSPaster windows in four themes: a command list ready to send on Classic,
+the grouped theme picker open on Nocturne, a run paused between lines on Canvas,
+and a countdown running on Phosphor](docs/hero-quadrants.png)
+
+Some consoles simply have no paste. You end up retyping a four-line command by
+hand into a KVM session, at 3am, with a typo waiting at the end of it. RSPaster
+is the small window you paste into instead: read the commands back, set a delay,
+then let it type them for you.
 
 No dependencies beyond a stock Windows 10 or 11 install. It uses the .NET
 Framework 4.x and the C# compiler that are already on the machine, so there is
-nothing to download and no runtime to install.
+nothing to download, no runtime to install, and no network access at any point.
+
+## What it does
+
+| | |
+|---|---|
+| **Types instead of pasting** | Real `SendInput` keystrokes with per-character scancodes, which is what VM, IPMI and VNC consoles actually listen for. |
+| **Waits between lines** | Optional pause after each Enter, for machines too slow or busy to accept the next command yet. |
+| **Waits for you** | A countdown before it starts, and a global hotkey so you can focus the console first and never take focus away. |
+| **Cancels instantly** | Esc, the hotkey, or the button. Even mid-way through a 30 second line delay. |
+| **Handles awkward characters** | AltGr characters on European layouts are sent as real AltGr chords, not unicode events the consoles would drop. |
+| **Hides the text** | One checkbox turns the box into dots, for a password on a shared screen. Pasting still works while hidden. |
+| **Keeps nothing** | The text box never touches disk. Not settings, not a recent list, not a crash backup. |
+| **Looks like the suite** | 30 palettes from the Canvas Suite design language, including the title bar and scrollbar. |
 
 ## Which file do I run?
 
@@ -21,7 +40,7 @@ nothing to download and no runtime to install.
 
 `Run-From-Source.cmd` and `RSPaster.exe` are not two programs. They are the same
 program, either compiled fresh on every launch or compiled once ahead of time.
-Identical behaviour, identical features. What differs is the cost:
+Identical behavior, identical features. What differs is the cost:
 
 | | `RSPaster.exe` | `Run-From-Source.cmd` |
 |---|---|---|
@@ -80,7 +99,8 @@ Then:
 | Key delay | 15 ms | Pause between keystrokes. Raise it to 30 - 50 ms if a slow BMC drops characters. |
 | Delay between lines | off, 15 s | Waits after each Enter before typing the next line, for machines where a command needs time to finish before the next can be entered. |
 | Press Enter at end | off | Appends a newline so the last line is submitted. |
-| Clear after typing | off | Wipes the box once typing finishes. |
+| Hide text | off | Shows the text as dots. Paste still works and replaces the box; untick to edit by hand. |
+| Clear after typing | off | Wipes the box once typing finishes, hidden text included. |
 | Always on top | on | Keeps the window above the console. |
 | Unicode mode | off | Sends every character as a Unicode event instead of scancodes. Turn on only if output comes out garbled. |
 | Theme | Classic | 30 palettes from the Canvas Suite, grouped Paper / Warm / Cool / Night / Screen. |
@@ -92,6 +112,16 @@ Preferences are kept in `%APPDATA%\RSPaster\settings.ini`, a plain key=value
 file you can edit. **The contents of the text box are never written to disk**,
 in any form: no settings entry, no recent-items list, no crash backup. It
 routinely holds passwords, so it stays in memory only.
+
+**Sending a password.** Tick **Hide text** and the box shows dots instead of
+characters. Pasting still works while hidden and replaces the whole box, so the
+usual flow never puts the secret on screen at all: tick Hide text, paste from
+your password manager, send it. Untick to edit by hand. What gets typed is the
+real text either way, and **Clear after typing** wipes the hidden copy too.
+
+The box is read-only while hidden. Editing a mask means mapping every caret
+move and selection back onto the string underneath, and getting that subtly
+wrong on a password is worse than not offering it.
 
 ## How it works, and where it stops
 
@@ -129,6 +159,10 @@ works with UAC only where prompts are configured to appear on the normal
 desktop. Running elevated covers ordinary elevated windows, not the secure
 desktop.
 
+See [DEPLOY.md](DEPLOY.md) for putting it on a machine: clearing the web mark
+that makes a downloaded exe look broken, what it writes and where, running it
+elevated, and what to expect on a locked-down or shared box.
+
 ## Layout
 
 | Path | Purpose |
@@ -140,6 +174,10 @@ desktop.
 | `Settings.cs` | Preference load and save. |
 | `Run-From-Source.cmd` / `.ps1` | Run without the exe, compiling on launch. |
 | `Build-RSPaster.cmd` | Compile the exe with the in-box compiler. |
-| `tools/charcheck.ps1` | Style check: fails on em-dashes and en-dashes. |
+| `favicon.svg` | The mark. Static hex, shared family ground, not themed. |
+| `DEPLOY.md` | Putting it on a machine, and what Windows does to a download. |
+| `docs/src/` | HTML sources for the hero and social images, plus the real captures they use. |
+| `tools/charcheck.ps1` | Style check: fails on em-dashes, en-dashes, and British spellings. |
 | `tools/Make-Dist.ps1` | Builds `dist/RSPaster.zip`, the run-or-rebuild file set. |
 | `tools/Dpi-Report.cmd` | Prints the measured layout at the display's real scaling. |
+| `tools/Render-Png.ps1` | Renders an HTML source to a PNG at an exact size. |

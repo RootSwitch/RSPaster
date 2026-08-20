@@ -1,4 +1,4 @@
-// Persisted preferences: %APPDATA%\RSPaster\settings.ini
+﻿// Persisted preferences: %APPDATA%\RSPaster\settings.ini
 //
 // Deliberately plain key=value rather than JSON. There is no in-box JSON
 // parser that does not pull in another assembly reference, and a hand-rolled
@@ -30,6 +30,7 @@ namespace RSPaster
         public bool ClearAfter;
         public bool AlwaysOnTop = true;
         public bool UnicodeMode;
+        public bool HideText;
         public int WindowWidth;
         public int WindowHeight;
 
@@ -73,6 +74,7 @@ namespace RSPaster
             s.ClearAfter = Bool(kv, "clearAfter", s.ClearAfter);
             s.AlwaysOnTop = Bool(kv, "alwaysOnTop", s.AlwaysOnTop);
             s.UnicodeMode = Bool(kv, "unicodeMode", s.UnicodeMode);
+            s.HideText = Bool(kv, "hideText", s.HideText);
             s.WindowWidth = Int(kv, "windowWidth", 0, 0, 10000);
             s.WindowHeight = Int(kv, "windowHeight", 0, 0, 10000);
             return s;
@@ -94,6 +96,7 @@ namespace RSPaster
                 Write(sb, "clearAfter", ClearAfter ? "true" : "false");
                 Write(sb, "alwaysOnTop", AlwaysOnTop ? "true" : "false");
                 Write(sb, "unicodeMode", UnicodeMode ? "true" : "false");
+                Write(sb, "hideText", HideText ? "true" : "false");
                 Write(sb, "windowWidth", WindowWidth.ToString(CultureInfo.InvariantCulture));
                 Write(sb, "windowHeight", WindowHeight.ToString(CultureInfo.InvariantCulture));
                 File.WriteAllText(FilePath, sb.ToString());

@@ -1,0 +1,70 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<!-- Source for docs/hero-quadrants.png. Rendered by:
+       powershell -File tools\Render-Png.ps1 -Html docs\src\hero.html `
+           -Out docs\hero-quadrants.png -Width 1400 -Height 1400
+     Composed as HTML rather than drawn, so a caption typo is a one-line fix and
+     a re-render instead of an image edit. Colors are the Classic palette.
+     Panel screenshots are real captures, kept in docs/src/panels. -->
+<style>
+  html, body {
+    margin: 0;
+    width: 1400px;
+    height: 1400px;
+    overflow: hidden;
+    background: #1b1e25;
+    font-family: "Segoe UI", system-ui, sans-serif;
+  }
+  .grid {
+    box-sizing: border-box;
+    width: 1400px;
+    height: 1400px;
+    padding: 56px;
+    display: grid;
+    grid-template-columns: 602px 602px;
+    grid-template-rows: 616px 616px;
+    column-gap: 84px;
+    row-gap: 56px;
+  }
+  .cell { display: flex; flex-direction: column; }
+  .cell img {
+    width: 602px;
+    height: 562px;
+    display: block;
+    border-radius: 8px;
+  }
+  .cap {
+    height: 40px;
+    line-height: 40px;
+    margin-top: 14px;
+    font-size: 19px;
+    color: #9aa3b2;
+    white-space: nowrap;
+  }
+  .cap b { color: #e6e9ef; font-weight: 600; }
+  .cap .theme { color: #4c8bf5; font-weight: 600; }
+</style>
+</head>
+<body>
+  <div class="grid">
+    <div class="cell">
+      <img src="panels/1-classic.png" alt="">
+      <div class="cap"><b>Paste, review, then send.</b> <span class="theme">Classic</span></div>
+    </div>
+    <div class="cell">
+      <img src="panels/2-nocturne.png" alt="">
+      <div class="cap"><b>Thirty palettes, grouped.</b> <span class="theme">Nocturne</span></div>
+    </div>
+    <div class="cell">
+      <img src="panels/3-canvas.png" alt="">
+      <div class="cap"><b>Waits between lines on slow machines.</b> <span class="theme">Canvas</span></div>
+    </div>
+    <div class="cell">
+      <img src="panels/4-phosphor.png" alt="">
+      <div class="cap"><b>Counts down so you can focus the console.</b> <span class="theme">Phosphor</span></div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- RSPaster mark: a clipboard whose page carries a typing caret, because
+       this tool types the clipboard rather than pasting it.
+
+       The family ground is shared with the rest of the suite - the #262a33
+       rounded tile - while the shape is RSPaster's own. Like the other RS
+       tools it skips the Canvas easel, which belongs to the Canvas metaphor,
+       and uses the Classic logo pair instead: #4c8bf5 and #2e9b57.
+
+       Static hex, deliberately. An SVG favicon is fetched as its own document
+       and cannot read the page's variables, so it could never follow the
+       active theme; and an identity mark should hold still anyway. The app
+       draws the same shape at runtime in Brand.PaintMark, where it does take
+       the theme accent, because there it is chrome rather than identity. -->
+  <rect width="64" height="64" rx="12" fill="#262a33"/>
+  <rect x="14" y="13" width="36" height="42" rx="5" fill="none" stroke="#4c8bf5" stroke-width="4"/>
+  <rect x="24" y="7" width="16" height="10" rx="3" fill="#2e9b57"/>
+  <path d="M23 29 L31 36 L23 43" fill="none" stroke="#2e9b57" stroke-width="4"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M35 44 L44 44" fill="none" stroke="#2e9b57" stroke-width="4" stroke-linecap="round"/>
+</svg>

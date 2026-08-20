@@ -43,6 +43,7 @@ namespace RSPaster
         Label _lblKey;
         Label _lblLineUnit;
         ThemedCheck _chkLineDelay;
+        ThemedCheck _chkHideText;
         ThemedCheck _chkUnicode;
         ThemedCheck _chkEnterAtEnd;
         ThemedCheck _chkClearAfter;
@@ -275,7 +276,7 @@ namespace RSPaster
             _tip = new ToolTip();
             // Owner-drawn, because the stock tooltip is a system light box:
             // jarring on 20-odd dark palettes, and its pale rectangle covers
-            // neighbouring controls, so any imperfect repaint on dismissal
+            // neighboring controls, so any imperfect repaint on dismissal
             // shows up as stray light edges.
             _tip.OwnerDraw = true;
             _tip.Draw += OnDrawToolTip;
@@ -302,6 +303,27 @@ namespace RSPaster
             _tip.SetToolTip(_chkLineDelay, lineDelayHelp);
             _tip.SetToolTip(_lineDelay, lineDelayHelp);
 
+            _chkHideText = MakeCheck("Hide text", _settings.HideText);
+            _tip.SetToolTip(_chkHideText,
+                "Show the text as dots, for a password on a shared screen.\r\n" +
+                "Pasting still works and replaces the whole box; untick to\r\n" +
+                "edit by hand. What gets typed is unchanged either way.");
+            _chkHideText.CheckedChanged += delegate(object s, EventArgs e)
+            {
+                _txtInput.Masked = _chkHideText.Checked;
+                _txtInput.ReadOnly = _chkHideText.Checked;
+                SetStatus(_chkHideText.Checked
+                    ? "Text hidden. Paste replaces it; untick Hide text to edit."
+                    : "Text visible again.");
+                SyncScrollFromText();
+            };
+            // MakeCheck sets Checked before the handler above exists, so a
+            // remembered hideText=true would leave the box unmasked while the
+            // checkbox claimed otherwise, and the next paste would appear in
+            // clear. Apply the restored state directly.
+            _txtInput.Masked = _chkHideText.Checked;
+            _txtInput.ReadOnly = _chkHideText.Checked;
+
             _chkEnterAtEnd = MakeCheck("Press Enter at end", _settings.EnterAtEnd);
             _chkClearAfter = MakeCheck("Clear after typing", _settings.ClearAfter);
             _chkOnTop = MakeCheck("Always on top", _settings.AlwaysOnTop);
@@ -327,6 +349,7 @@ namespace RSPaster
             _bottom.Controls.Add(_chkLineDelay);
             _bottom.Controls.Add(_lineDelay);
             _bottom.Controls.Add(_lblLineUnit);
+            _bottom.Controls.Add(_chkHideText);
             _bottom.Controls.Add(_chkEnterAtEnd);
             _bottom.Controls.Add(_chkClearAfter);
             _bottom.Controls.Add(_chkOnTop);
@@ -416,6 +439,7 @@ namespace RSPaster
             _chkLineDelay.Location = new Point(0, Middle(row2, spinH, _chkLineDelay.Height));
             _lineDelay.Location = new Point(_chkLineDelay.Right + gapS, row2);
             _lblLineUnit.Location = new Point(_lineDelay.Right + gapS, Middle(row2, spinH, _lblLineUnit.Height));
+            _chkHideText.Location = new Point(_lblLineUnit.Right + gapL, Middle(row2, spinH, _chkHideText.Height));
 
             _chkEnterAtEnd.Location = new Point(0, row3);
             _chkClearAfter.Location = new Point(_chkEnterAtEnd.Right + gapL, row3);
@@ -575,7 +599,7 @@ namespace RSPaster
             if (old != IntPtr.Zero) Native.DestroyIcon(old);
         }
 
-        // ---- window / tray behaviour ---------------------------------------
+        // ---- window / tray behavior ---------------------------------------
 
         protected override void OnShown(EventArgs e)
         {
@@ -680,6 +704,7 @@ namespace RSPaster
             _settings.ClearAfter = _chkClearAfter.Checked;
             _settings.AlwaysOnTop = _chkOnTop.Checked;
             _settings.UnicodeMode = _chkUnicode.Checked;
+            _settings.HideText = _chkHideText.Checked;
             _settings.Theme = Th.T.Key;
             if (WindowState == FormWindowState.Normal)
             {
@@ -710,7 +735,7 @@ namespace RSPaster
 
         void StartCountdown()
         {
-            if (_txtInput.Text.Length == 0)
+            if (_txtInput.RealText.Length == 0)
             {
                 SetStatus("Nothing to type - paste some text first.");
                 return;
@@ -758,7 +783,7 @@ namespace RSPaster
             Text = "[typing] " + _baseTitle;
             SetStatus("Typing...");
 
-            string text = _txtInput.Text;
+            string text = _txtInput.RealText;
             if (_chkEnterAtEnd.Checked) text += "\n";
 
             TypeOptions options = new TypeOptions();
@@ -809,7 +834,9 @@ namespace RSPaster
                 SetStatus(string.Format(CultureInfo.InvariantCulture,
                     "Done - {0} characters typed.", result.KeysSent));
 
-            if (_chkClearAfter.Checked && !result.Cancelled) _txtInput.Clear();
+            // ClearAll, not Clear: with the text hidden, Clear would empty the
+            // mask on screen and leave the secret sitting in the shadow copy.
+            if (_chkClearAfter.Checked && !result.Cancelled) _txtInput.ClearAll();
         }
 
         void CancelRun()
@@ -864,7 +891,11 @@ namespace RSPaster
 
         void SetInputsEnabled(bool enabled)
         {
-            _txtInput.ReadOnly = !enabled;
+            // Masked already implies read-only, so a finished run must not
+            // hand editing back to a box that is still showing dots.
+            _txtInput.ReadOnly = !enabled || _chkHideText.Checked;
+            _txtInput.RunLocked = !enabled;
+            _chkHideText.Enabled = enabled;
             _startDelay.Enabled = enabled;
             _keyDelay.Enabled = enabled;
             _chkLineDelay.Enabled = enabled;

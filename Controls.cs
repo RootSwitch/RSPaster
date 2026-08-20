@@ -13,6 +13,7 @@ using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Globalization;
+using System.Text;
 using System.Windows.Forms;
 
 namespace RSPaster
@@ -95,6 +96,79 @@ namespace RSPaster
 
         public event EventHandler ViewChanged;
 
+        // ---- masking --------------------------------------------------------
+        //
+        // PasswordChar and UseSystemPasswordChar are ignored on a multiline
+        // TextBox, so masking cannot be delegated to the control. The real text
+        // is held here instead and the box shows a stand-in.
+        //
+        // While masked the box is read-only, because editing a mask would mean
+        // mapping every caret move and selection back onto the hidden string,
+        // and getting that subtly wrong on a password is worse than not
+        // offering it. Pasting still works and replaces the whole contents,
+        // which is the flow this exists for: tick Hide, paste the secret from a
+        // password manager, send it, and it is never on screen at all.
+
+        const char MASK_CHAR = '●';
+
+        bool _masked;
+        string _real;
+
+        // Set by the form while a run is in progress. Distinct from ReadOnly,
+        // which is also true whenever the box is masked.
+        public bool RunLocked;
+
+        public bool Masked
+        {
+            get { return _masked; }
+            set
+            {
+                if (_masked == value) return;
+                if (value)
+                {
+                    _real = Text;
+                    _masked = true;
+                    ShowMask();
+                }
+                else
+                {
+                    _masked = false;
+                    string t = _real;
+                    _real = null;
+                    Text = t == null ? "" : t;
+                    SelectionStart = TextLength;
+                }
+                if (ViewChanged != null) ViewChanged(this, EventArgs.Empty);
+            }
+        }
+
+        // What the keystroke engine sends, and what the character count means.
+        public string RealText
+        {
+            get { return _masked ? (_real == null ? "" : _real) : Text; }
+        }
+
+        public void ClearAll()
+        {
+            _real = _masked ? "" : null;
+            Clear();
+        }
+
+        void ShowMask()
+        {
+            string src = _real == null ? "" : _real;
+            StringBuilder sb = new StringBuilder(src.Length);
+            for (int i = 0; i < src.Length; i++)
+            {
+                // Line breaks survive, so the shape of a script is still
+                // visible while its content is not.
+                char c = src[i];
+                sb.Append(c == '\r' || c == '\n' ? c : MASK_CHAR);
+            }
+            Text = sb.ToString();
+            SelectionStart = TextLength;
+        }
+
         protected override void WndProc(ref Message m)
         {
             // An EDIT control only breaks lines on CRLF. Text copied from a
@@ -105,20 +179,21 @@ namespace RSPaster
             // changes what is displayed, never what is sent.
             if (m.Msg == WM_PASTE)
             {
+                // Nothing may change the text while a run is in flight, masked
+                // or not: the engine is reading it on another thread.
+                if (RunLocked) return;
+
+                if (_masked) { PasteMasked(); return; }
+
                 // Setting SelectedText ignores ReadOnly, so without this check
                 // Ctrl+V could edit the text mid-run while typing is active -
                 // exactly when the box is locked. The native EDIT control
                 // refuses pastes when read-only; so do we.
                 if (ReadOnly) return;
-                string text = null;
-                try
-                {
-                    if (Clipboard.ContainsText()) text = Clipboard.GetText();
-                }
-                catch (System.Runtime.InteropServices.ExternalException) { }   // clipboard locked
+                string text = ReadClipboard();
                 if (text != null)
                 {
-                    SelectedText = text.Replace("\r\n", "\n").Replace("\r", "\n").Replace("\n", "\r\n");
+                    SelectedText = Normalize(text);
                     if (ViewChanged != null) ViewChanged(this, EventArgs.Empty);
                     return;
                 }
@@ -139,6 +214,46 @@ namespace RSPaster
                     if (ViewChanged != null) ViewChanged(this, EventArgs.Empty);
                     break;
             }
+        }
+
+        // A read-only EDIT control swallows Ctrl+V outright: it never raises
+        // WM_PASTE, so the handler above is unreachable from the keyboard while
+        // masked. ProcessCmdKey sees the key before the control does.
+        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        {
+            if (keyData == (Keys.Control | Keys.V) && _masked)
+            {
+                if (!RunLocked) PasteMasked();
+                return true;
+            }
+            return base.ProcessCmdKey(ref msg, keyData);
+        }
+
+        // Replaces the whole contents rather than the selection. There is no
+        // meaningful selection to honor when what is on screen is a mask, and
+        // "paste replaces it" is a rule that fits in the status bar.
+        void PasteMasked()
+        {
+            string secret = ReadClipboard();
+            if (secret == null) return;
+            _real = Normalize(secret);
+            ShowMask();
+            if (ViewChanged != null) ViewChanged(this, EventArgs.Empty);
+        }
+
+        static string ReadClipboard()
+        {
+            try
+            {
+                if (Clipboard.ContainsText()) return Clipboard.GetText();
+            }
+            catch (System.Runtime.InteropServices.ExternalException) { }   // clipboard locked
+            return null;
+        }
+
+        static string Normalize(string t)
+        {
+            return t.Replace("\r\n", "\n").Replace("\r", "\n").Replace("\n", "\r\n");
         }
 
         // Wrapped lines, not logical lines - which is what the scrollbar needs.

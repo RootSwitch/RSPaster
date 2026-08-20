@@ -1,4 +1,4 @@
-# Builds dist\RSPaster.zip: the files someone needs to run or rebuild RSPaster,
+﻿# Builds dist\RSPaster.zip: the files someone needs to run or rebuild RSPaster,
 # and nothing else.
 #
 # The exe is rebuilt first rather than zipped as found, because a distribution
@@ -19,8 +19,10 @@ $stage = Join-Path $dist '_stage'
 $payload = Join-Path $stage 'RSPaster'
 $zip = Join-Path $dist 'RSPaster.zip'
 
-# Everything the zip ships, relative to the repo root. docs\screenshot.png is
-# here only because README.md renders it; drop one and drop both.
+# Everything the zip ships, relative to the repo root. The hero image is here
+# only because README.md renders it; drop one and drop both. DEPLOY.md earns
+# its place because the first thing a recipient of this zip hits is Windows
+# refusing to run a downloaded exe, and that is the file that explains it.
 $manifest = @(
     'RSPaster.exe'
     'RSPaster.cs'
@@ -32,8 +34,9 @@ $manifest = @(
     'Run-From-Source.cmd'
     'Build-RSPaster.cmd'
     'README.md'
+    'DEPLOY.md'
     'LICENSE'
-    'docs\screenshot.png'
+    'docs\hero-quadrants.png'
 )
 
 Write-Host 'Rebuilding the exe so it matches the sources shipped beside it...'

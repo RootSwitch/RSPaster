@@ -2,6 +2,33 @@
 
 ## Unreleased
 
+## 1.0.0 - 2026-08-20
+
+First public release. Types multi-line text into whatever window has focus,
+through `SendInput`, for the consoles that will not take a clipboard paste.
+
+Everything below is the development history. It is kept in full rather than
+collapsed into a release note, because each entry records why a piece of the
+code is shaped the way it is, and several of them are Windows behavior that
+will bite the next person who touches this file.
+
+**Added Hide text.** The tool this one grew out of pasted single-line
+passwords, and a password on screen during a screenshare is exactly the case
+this could not previously serve. One checkbox now shows the contents as dots.
+
+`PasswordChar` and `UseSystemPasswordChar` are both ignored on a multiline
+`TextBox`, so masking could not be handed to the control: the real text is held
+beside it and the box shows a stand-in, with line breaks preserved so the shape
+of a script survives while its content does not. The keystroke engine reads the
+real text, and `Clear after typing` wipes that copy rather than just the mask.
+
+Pasting works while hidden and replaces the whole box, which is what makes the
+feature usable: tick Hide text, paste from a password manager, send it, and the
+secret is never rendered. Typing by hand is blocked while hidden, because
+editing a mask means mapping every caret move and selection back onto the
+hidden string, and getting that subtly wrong on a password is worse than not
+offering it.
+
 **A 1px line along the top and left of every owner-drawn control.** Each paint
 method set `SmoothingMode.AntiAlias` before filling its background, and GDI+
 anti-aliases the edges of a filled rectangle: the first row and column came out
@@ -34,7 +61,7 @@ from. It is now a field, disposed with the form.
 
 The tooltip was also drawn by the system as a pale box, which on a dark palette
 is both jarring and the source of the leftover edges: it is a separate top
-level window that covers whatever is beneath it, including neighbouring
+level window that covers whatever is beneath it, including neighboring
 controls, so any imperfect repaint on dismissal shows as a thin light line
 under a control that has no tooltip of its own. It is now owner-drawn in theme
 colors.

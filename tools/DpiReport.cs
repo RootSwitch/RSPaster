@@ -47,7 +47,7 @@ namespace RSPaster
                 Console.WriteLine("---------------------  -----  -----  -----");
                 List<Control> ordered = new List<Control>();
                 foreach (Control c in bottom.Controls) ordered.Add(c);
-                // Sort by vertical centre, not Top: labels are centred against
+                // Sort by vertical center, not Top: labels are centered against
                 // their field, so their Top differs from the field's by design.
                 ordered.Sort(delegate(Control a, Control b)
                 {
