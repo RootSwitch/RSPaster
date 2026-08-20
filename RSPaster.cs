@@ -52,6 +52,7 @@ namespace RSPaster
         Label _lblStatus;
         Label _lnkAdmin;
 
+        ToolTip _tip;
         ContextMenuStrip _themeMenu;
         NotifyIcon _tray;
         ContextMenuStrip _trayMenu;
@@ -265,10 +266,22 @@ namespace RSPaster
             _lblKey = MakeLabel("Key delay (ms)");
             _keyDelay = new SpinBox(0, 500, _settings.KeyDelayMs);
 
-            ToolTip tip = new ToolTip();
+            // Held in a field, not a local. A ToolTip is a Component, not a
+            // child control, so nothing else keeps it alive: as a local it
+            // becomes garbage the moment this method returns, and whenever the
+            // finalizer happens to run it destroys the native tooltip window
+            // underneath a tip that may be on screen. That is the random part
+            // of tooltips flickering and leaving fragments behind.
+            _tip = new ToolTip();
+            // Owner-drawn, because the stock tooltip is a system light box:
+            // jarring on 20-odd dark palettes, and its pale rectangle covers
+            // neighbouring controls, so any imperfect repaint on dismissal
+            // shows up as stray light edges.
+            _tip.OwnerDraw = true;
+            _tip.Draw += OnDrawToolTip;
 
             _chkUnicode = MakeCheck("Unicode mode", _settings.UnicodeMode);
-            tip.SetToolTip(_chkUnicode,
+            _tip.SetToolTip(_chkUnicode,
                 "Send every character as a unicode event instead of scancodes.\r\n" +
                 "Use this if the typed output comes out garbled, which means the\r\n" +
                 "target's keyboard layout differs from yours.");
@@ -286,8 +299,8 @@ namespace RSPaster
                 "For slow or busy machines where a command needs time to\r\n" +
                 "finish before the next one can be entered. Cancel stays\r\n" +
                 "responsive during the wait.";
-            tip.SetToolTip(_chkLineDelay, lineDelayHelp);
-            tip.SetToolTip(_lineDelay, lineDelayHelp);
+            _tip.SetToolTip(_chkLineDelay, lineDelayHelp);
+            _tip.SetToolTip(_lineDelay, lineDelayHelp);
 
             _chkEnterAtEnd = MakeCheck("Press Enter at end", _settings.EnterAtEnd);
             _chkClearAfter = MakeCheck("Clear after typing", _settings.ClearAfter);
@@ -325,6 +338,19 @@ namespace RSPaster
 
             _content.Controls.Add(_txtHost);
             _content.Controls.Add(_bottom);
+        }
+
+        void OnDrawToolTip(object sender, DrawToolTipEventArgs e)
+        {
+            Theme t = Th.T;
+            using (SolidBrush b = new SolidBrush(t.Panel))
+                e.Graphics.FillRectangle(b, e.Bounds);
+            using (Pen p = new Pen(t.Border))
+                e.Graphics.DrawRectangle(p, new Rectangle(
+                    e.Bounds.X, e.Bounds.Y, e.Bounds.Width - 1, e.Bounds.Height - 1));
+            Rectangle text = Rectangle.Inflate(e.Bounds, -Dpi.S(4), -Dpi.S(2));
+            TextRenderer.DrawText(e.Graphics, e.ToolTipText, e.Font, text, t.Txt,
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter);
         }
 
         void SyncScrollFromText()
@@ -612,6 +638,7 @@ namespace RSPaster
         protected override void OnFormClosed(FormClosedEventArgs e)
         {
             _cancelRequested = true;
+            if (_tip != null) _tip.Dispose();
             _tray.Visible = false;
             _tray.Dispose();
             if (_iconHandle != IntPtr.Zero) Native.DestroyIcon(_iconHandle);

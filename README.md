@@ -1,4 +1,4 @@
-# RSPaster
+﻿# RSPaster
 
 Types multi-line text into whatever window has focus, as if from a physical
 keyboard, for the consoles that will not take a clipboard paste. Built for
@@ -30,10 +30,17 @@ Identical behaviour, identical features. What differs is the cost:
 | Shows in Task Manager as | `RSPaster` | `powershell` |
 | Needs | nothing | the five `.cs` files beside it |
 | SmartScreen and antivirus | can flag an unsigned exe | ships no binary |
+| Display scaling above 100% | sharp | soft, see below |
 
 Prefer the exe. The source path is there for handing the tool to someone who
 will not run an unknown binary, for machines that block unsigned ones, and for
 editing a `.cs` file and seeing the change without a build step.
+
+On a display scaled above 100%, use the exe. DPI awareness has to be declared
+before a process opens its first window, and the PowerShell host has already
+opened one, so the script path lays out at 1x and lets Windows stretch the
+result. The proportions stay right but the window is soft. To check the scaled
+layout on your own display, run `tools\Dpi-Report.cmd`.
 
 (`Run-From-Source.ps1` does the actual work; the `.cmd` is only a
 double-clickable wrapper, because Windows opens a `.ps1` in an editor rather
@@ -135,3 +142,4 @@ desktop.
 | `Build-RSPaster.cmd` | Compile the exe with the in-box compiler. |
 | `tools/charcheck.ps1` | Style check: fails on em-dashes and en-dashes. |
 | `tools/Make-Dist.ps1` | Builds `dist/RSPaster.zip`, the run-or-rebuild file set. |
+| `tools/Dpi-Report.cmd` | Prints the measured layout at the display's real scaling. |

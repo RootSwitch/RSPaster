@@ -2,6 +2,34 @@
 
 ## Unreleased
 
+**Tooltips left stray dark edges behind and flickered at random.** The ToolTip
+was a local variable. It is a Component, not a child control, so nothing else
+held a reference: it became garbage as soon as the method returned, and
+whenever the finalizer happened to run it destroyed the native tooltip window
+out from under a tip that might be on screen. That is where the randomness came
+from. It is now a field, disposed with the form.
+
+The tooltip was also drawn by the system as a pale box, which on a dark palette
+is both jarring and the source of the leftover edges: it is a separate top
+level window that covers whatever is beneath it, including neighbouring
+controls, so any imperfect repaint on dismissal shows as a thin light line
+under a control that has no tooltip of its own. It is now owner-drawn in theme
+colors.
+
+**Added `tools/Dpi-Report.cmd`.** A 100% display cannot be used to check a 150%
+layout, because text metrics come from the real DPI. This compiles a probe
+against the app's own sources, runs it on the scaled display, and prints the
+measured geometry with a pass or fail on each label-to-field gap. It reports
+whether `SetProcessDPIAware` actually succeeded, so a run that only describes
+an unscaled layout says so instead of looking like a pass.
+
+**Note: `Run-From-Source.cmd` cannot be DPI-aware.** `SetProcessDPIAware` has to
+be called before the process creates its first window, and the PowerShell host
+has already done that. The script path therefore lays out at 1x and lets
+Windows stretch the result: correct proportions, but soft at 125% and above.
+The exe is the one to use on a scaled display, and the README now says so.
+
+
 **Field labels overlapped their spin boxes at 150% scaling.** An AutoSize label
 reports the stock 100x23 default until it is parented, and the layout runs
 before that, so "Start delay (s)" was placed against a width of 100 when it
