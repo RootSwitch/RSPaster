@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+**Field labels overlapped their spin boxes at 150% scaling.** An AutoSize label
+reports the stock 100x23 default until it is parented, and the layout runs
+before that, so "Start delay (s)" was placed against a width of 100 when it
+actually needed 79. The 21px of slack that leaves is invisible at 100% and
+turns into an overlap at 150%, because 100 is a fixed pixel value that does not
+scale while the text does. Labels are now measured and sized explicitly, the
+same way ThemedCheck already sized itself. The same stale default was also
+making the labels sit a few pixels high, since Height read 23 instead of 15.
+
+Worth recording how this got through: it was checked at 1x through 2x before
+release and passed, because that check scaled `Dpi.Factor` without scaling the
+font. A 100% display cannot simulate 150% faithfully - text metrics come from
+the real DPI, so scaling the layout alone grows the gaps but not the words, and
+scaling a probe font instead grows the words but not the layout. The check now
+asserts something scale-independent: each control sits at the previous one's
+`Right` plus a fixed gap, so that distance must come out exactly right at every
+factor. With the defect put back it reports 29px where 8 was expected, and the
+error stays a constant 21px at every scale, which is the signature of a
+constant that is not scaling.
+
+**The "seconds" label was never given theme colors**, so it inherited full
+brightness text while the two field labels beside it render dimmed.
+
+
 **Non-ASCII characters were typed as a literal `?`.** `VkKeyScanEx` was declared
 without `CharSet`, and `DllImport` defaults to ANSI, so the CLR squeezed each
 `char` through the system code page on the way to `VkKeyScanExA`. Anything the

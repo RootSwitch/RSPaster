@@ -335,14 +335,22 @@ namespace RSPaster
             _syncing = false;
         }
 
+        // Sized here rather than left to AutoSize, which is the same reason
+        // ThemedCheck has SizeToText. An AutoSize label reports the stock
+        // 100x23 default until it is parented, and LayoutBottom runs before
+        // that. Laying out against 100 happens to leave a gap at 100% and
+        // overlaps the next control at 150%, because 100 is a fixed pixel
+        // value that does not scale while the text does.
         Label MakeLabel(string text)
         {
             Label l = new Label();
-            // Font before Text: an unparented control measures with
-            // Control.DefaultFont otherwise, and AutoSize bakes that in.
-            l.Font = Font;
+            l.AutoSize = false;
+            l.Font = Font;   // before measuring: unparented, it has no inherited font yet
             l.Text = text;
-            l.AutoSize = true;
+            l.TextAlign = ContentAlignment.MiddleLeft;
+            Size s = TextRenderer.MeasureText(text, l.Font, new Size(int.MaxValue, int.MaxValue),
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+            l.Size = new Size(s.Width + Dpi.S(2), s.Height + Dpi.S(2));
             return l;
         }
 
@@ -513,6 +521,8 @@ namespace RSPaster
             _lblStart.ForeColor = t.TxtDim;
             _lblKey.BackColor = t.Panel2;
             _lblKey.ForeColor = t.TxtDim;
+            _lblLineUnit.BackColor = t.Panel2;
+            _lblLineUnit.ForeColor = t.TxtDim;
 
             _lblStatus.BackColor = t.Panel;
             _lblStatus.ForeColor = t.TxtDim;
