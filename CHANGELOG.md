@@ -1,6 +1,69 @@
-# Changelog
+﻿# Changelog
 
 ## Unreleased
+
+**Non-ASCII characters were typed as a literal `?`.** `VkKeyScanEx` was declared
+without `CharSet`, and `DllImport` defaults to ANSI, so the CLR squeezed each
+`char` through the system code page on the way to `VkKeyScanExA`. Anything the
+page could not represent arrived as `?`, which resolved to a real key, so the
+engine typed a question mark instead of falling through to the unicode path.
+Measured on a Windows-1252 machine, the old declaration mapped Greek, CJK,
+arrows and checkmarks to the `?` key; the new one reports them unmapped and the
+unicode fallback takes over.
+
+**AltGr characters were silently dropped by the consoles this tool exists for.**
+Anything needing more than plain Shift fell back to a unicode event, and on
+European layouts that is `@ { } [ ] \ | ~` and the euro sign - the characters a
+shell command is made of. Hypervisor and IPMI KVM consoles emulate a hardware
+keyboard and ignore `KEYEVENTF_UNICODE`, so those characters reached the guest
+as nothing at all. Ctrl+Alt pairs are now sent as a real AltGr chord: left
+Control plus the extended right Alt, exactly the scancode sequence a physical
+AltGr press emits. Verified end to end against a German layout.
+
+**The hotkey could fire while its own modifiers were still held.** With a start
+delay of 0, `Ctrl+Alt+V` began injecting before the user's fingers were off the
+keys, so the first characters arrived at the target as Ctrl+Alt chords: menu
+shortcuts, interrupted commands. Typing now waits for Shift, Ctrl, Alt, Win and
+V to be physically up, with a three second cap so a stuck key cannot hang a run.
+
+**Ctrl+V could edit the text while it was being typed.** The paste handler
+assigns `SelectedText`, which ignores `ReadOnly`, so the box that is deliberately
+locked during a run accepted pastes anyway.
+
+**Choosing a theme reverted every unsaved setting.** The theme menu called
+`_settings.Save()`, writing the object as it was at startup, so any delay or
+checkbox changed since launch was rolled back. It now goes through
+`SaveSettings()`, which reads the controls first.
+
+**Hiding to the tray recreated the window handle.** `ShowInTaskbar` was toggled
+on hide and restore, and changing it forces WinForms to destroy and rebuild the
+`HWND`, which drops and re-registers the global hotkey and reapplies the dark
+title bar for nothing. `Hide()` already clears the taskbar button. Confirmed the
+handle now survives a hide.
+
+**Blurry on scaled displays.** The process declared no DPI awareness, so Windows
+bitmap-stretched the whole window at 125% and above. It now calls
+`SetProcessDPIAware` before the first window and scales every hand-placed
+dimension through one factor - awareness without the scaling would have traded
+blurry for tiny.
+
+**Controls in the bottom panel were positioned at fixed pixel offsets** and
+would collide if a label were reworded or the font metrics differed. Each is now
+placed relative to the one before it. Checked for collisions and overflow at
+1x through 2x.
+
+**The disabled seconds field showed a system-gray hole on dark themes.** A
+disabled WinForms `TextBox` ignores `BackColor`. The child now stays enabled but
+read-only, with the border, arrows and text painted dimmed, matching the
+half-opacity treatment the suite gives disabled buttons.
+
+**Status text was truncated when running elevated**, because the layout reserved
+room for the "Restart as Admin" link even when it was hidden. Note for anyone
+making the same change: the fix cannot test `_lnkAdmin.Visible`, because
+`Control.Visible` reports *effective* visibility and answers false for every
+control while the form is still being built - which lands the status label on
+top of the link instead. The intended state is kept in a field.
+
 
 **Renamed `RSPaster.cmd` to `Run-From-Source.cmd`, and the `.ps1` with it.**
 `RSPaster.cmd` sitting beside `RSPaster.exe` read as two variants of the same

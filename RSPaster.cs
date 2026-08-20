@@ -1,4 +1,4 @@
-// RSPaster - types multi-line text into whatever window has focus, for targets
+﻿// RSPaster - types multi-line text into whatever window has focus, for targets
 // that ignore the clipboard: hypervisor VM consoles, VNC, IPMI/BMC KVM, and UAC
 // prompts shown on the normal desktop.
 //
@@ -67,6 +67,7 @@ namespace RSPaster
         bool _hotkeyRegistered;
         bool _exiting;
         bool _trayHintShown;
+        bool _showAdminLink;
         string _baseTitle = "RSPaster";
 
         public MainForm()
@@ -77,9 +78,9 @@ namespace RSPaster
             if (IsElevated()) _baseTitle += " [Admin]";
             Text = _baseTitle;
             ClientSize = new Size(
-                _settings.WindowWidth >= 520 ? _settings.WindowWidth : 600,
-                _settings.WindowHeight >= 500 ? _settings.WindowHeight : 530);
-            MinimumSize = new Size(520, 500);
+                _settings.WindowWidth >= Dpi.S(520) ? _settings.WindowWidth : Dpi.S(600),
+                _settings.WindowHeight >= Dpi.S(500) ? _settings.WindowHeight : Dpi.S(530));
+            MinimumSize = new Size(Dpi.S(520), Dpi.S(500));
             StartPosition = FormStartPosition.CenterScreen;
             KeyPreview = true;
             TopMost = _settings.AlwaysOnTop;
@@ -111,14 +112,14 @@ namespace RSPaster
         {
             _topBar = new Panel();
             _topBar.Dock = DockStyle.Top;
-            _topBar.Height = 42;
+            _topBar.Height = Dpi.S(42);
             _topBar.Paint += PaintTopBar;
 
             _btnTheme = new ThemedButton();
             _btnTheme.Text = "Theme";
-            _btnTheme.Size = new Size(84, 26);
+            _btnTheme.Size = new Size(Dpi.S(84), Dpi.S(26));
             _btnTheme.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            _btnTheme.Location = new Point(_topBar.Width - 96, 8);
+            _btnTheme.Location = new Point(_topBar.Width - _btnTheme.Width - Dpi.S(12), Dpi.S(8));
             _btnTheme.Click += delegate(object s, EventArgs e)
             {
                 MenuTheme.Apply(_themeMenu);
@@ -127,7 +128,7 @@ namespace RSPaster
             _topBar.Controls.Add(_btnTheme);
             _topBar.Resize += delegate(object s, EventArgs e)
             {
-                _btnTheme.Location = new Point(_topBar.Width - _btnTheme.Width - 12, 8);
+                _btnTheme.Location = new Point(_topBar.Width - _btnTheme.Width - Dpi.S(12), Dpi.S(8));
             };
         }
 
@@ -138,16 +139,16 @@ namespace RSPaster
             using (Pen p = new Pen(t.Border))
                 e.Graphics.DrawLine(p, 0, _topBar.Height - 1, _topBar.Width, _topBar.Height - 1);
 
-            Brand.PaintMark(e.Graphics, new Rectangle(11, 10, 22, 22), t.Accent, t.Accent);
+            Brand.PaintMark(e.Graphics, new Rectangle(Dpi.S(11), Dpi.S(10), Dpi.S(22), Dpi.S(22)), t.Accent, t.Accent);
 
             using (Font f = new Font("Segoe UI", 10.5F, FontStyle.Bold))
                 TextRenderer.DrawText(e.Graphics, "RSPaster", f,
-                    new Rectangle(40, 0, 220, _topBar.Height - 1), t.Txt,
+                    new Rectangle(Dpi.S(40), 0, Dpi.S(220), _topBar.Height - 1), t.Txt,
                     TextFormatFlags.Left | TextFormatFlags.VerticalCenter);
 
             using (Font f = new Font("Segoe UI", 8.25F))
                 TextRenderer.DrawText(e.Graphics, _hotkeyRegistered ? HOTKEY_LABEL : "hotkey unavailable", f,
-                    new Rectangle(122, 0, 200, _topBar.Height - 1), t.TxtDim,
+                    new Rectangle(Dpi.S(122), 0, Dpi.S(200), _topBar.Height - 1), t.TxtDim,
                     TextFormatFlags.Left | TextFormatFlags.VerticalCenter);
         }
 
@@ -155,7 +156,7 @@ namespace RSPaster
         {
             _statusBar = new Panel();
             _statusBar.Dock = DockStyle.Bottom;
-            _statusBar.Height = 26;
+            _statusBar.Height = Dpi.S(26);
             _statusBar.Paint += delegate(object s, PaintEventArgs e)
             {
                 e.Graphics.Clear(Th.T.Panel);
@@ -165,8 +166,8 @@ namespace RSPaster
 
             _lblStatus = new Label();
             _lblStatus.AutoSize = false;
-            _lblStatus.Location = new Point(11, 1);
-            _lblStatus.Size = new Size(380, 24);
+            _lblStatus.Location = new Point(Dpi.S(11), 1);
+            _lblStatus.Size = new Size(Dpi.S(380), Dpi.S(24));
             _lblStatus.TextAlign = ContentAlignment.MiddleLeft;
             _lblStatus.Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right;
             _lblStatus.Text = "Paste text, then focus the target during the countdown.";
@@ -177,7 +178,13 @@ namespace RSPaster
             _lnkAdmin.Text = "Restart as Admin";
             _lnkAdmin.Cursor = Cursors.Hand;
             _lnkAdmin.Anchor = AnchorStyles.Right | AnchorStyles.Top;
-            _lnkAdmin.Visible = !IsElevated();
+            // Kept in a field, not read back from _lnkAdmin.Visible: that
+            // getter reports effective visibility, so while the form is still
+            // being built and the parent is not shown it answers false, and
+            // the layout below would hand the link's space to the status text
+            // and then overlap them.
+            _showAdminLink = !IsElevated();
+            _lnkAdmin.Visible = _showAdminLink;
             _lnkAdmin.Click += delegate(object s, EventArgs e) { RestartAsAdmin(); };
 
             _statusBar.Controls.Add(_lblStatus);
@@ -187,15 +194,24 @@ namespace RSPaster
 
         void LayoutStatusBar()
         {
-            _lnkAdmin.Location = new Point(_statusBar.Width - _lnkAdmin.Width - 11, 5);
-            _lblStatus.Size = new Size(Math.Max(80, _lnkAdmin.Left - 20), 24);
+            if (_showAdminLink)
+            {
+                _lnkAdmin.Location = new Point(_statusBar.Width - _lnkAdmin.Width - Dpi.S(11), Dpi.S(5));
+                _lblStatus.Size = new Size(Math.Max(80, _lnkAdmin.Left - Dpi.S(20)), Dpi.S(24));
+            }
+            else
+            {
+                // Running elevated hides the link; give the space to status
+                // text, which is where line-wait countdowns live.
+                _lblStatus.Size = new Size(_statusBar.Width - Dpi.S(22), Dpi.S(24));
+            }
         }
 
         void BuildContent()
         {
             _content = new Panel();
             _content.Dock = DockStyle.Fill;
-            _content.Padding = new Padding(12, 12, 12, 8);
+            _content.Padding = new Padding(Dpi.S(12), Dpi.S(12), Dpi.S(12), Dpi.S(8));
 
             _txtInput = new ScrollAwareTextBox();
             _txtInput.Multiline = true;
@@ -209,7 +225,7 @@ namespace RSPaster
             _txtInput.BorderStyle = BorderStyle.None;
             _txtInput.Font = new Font("Consolas", 10F);
 
-            _txtHost = new InputHost(_txtInput, 6, 5);
+            _txtHost = new InputHost(_txtInput, Dpi.S(6), Dpi.S(5));
             _txtHost.Dock = DockStyle.Fill;
 
             _scroll = new ThemedScrollBar();
@@ -227,30 +243,26 @@ namespace RSPaster
 
             _bottom = new Panel();
             _bottom.Dock = DockStyle.Bottom;
-            _bottom.Height = 152;
-            _bottom.Padding = new Padding(0, 10, 0, 0);
+            _bottom.Height = Dpi.S(152);
 
-            _lblStart = MakeLabel("Start delay (s)", 0, 16);
+            _lblStart = MakeLabel("Start delay (s)");
             _startDelay = new SpinBox(0, 60, _settings.StartDelaySeconds);
-            _startDelay.SetBounds(96, 10, 64, 27);
 
-            _lblKey = MakeLabel("Key delay (ms)", 176, 16);
+            _lblKey = MakeLabel("Key delay (ms)");
             _keyDelay = new SpinBox(0, 500, _settings.KeyDelayMs);
-            _keyDelay.SetBounds(268, 10, 64, 27);
 
             ToolTip tip = new ToolTip();
 
-            _chkUnicode = MakeCheck("Unicode mode", 350, 13, _settings.UnicodeMode);
+            _chkUnicode = MakeCheck("Unicode mode", _settings.UnicodeMode);
             tip.SetToolTip(_chkUnicode,
                 "Send every character as a unicode event instead of scancodes.\r\n" +
                 "Use this if the typed output comes out garbled, which means the\r\n" +
                 "target's keyboard layout differs from yours.");
 
-            _chkLineDelay = MakeCheck("Delay between lines", 0, 48, _settings.LineDelayEnabled);
+            _chkLineDelay = MakeCheck("Delay between lines", _settings.LineDelayEnabled);
             _lineDelay = new SpinBox(0, 600, _settings.LineDelaySeconds);
-            _lineDelay.SetBounds(176, 45, 64, 27);
             _lineDelay.Enabled = _settings.LineDelayEnabled;
-            _lblLineUnit = MakeLabel("seconds", 248, 51);
+            _lblLineUnit = MakeLabel("seconds");
             _chkLineDelay.CheckedChanged += delegate(object s, EventArgs e)
             {
                 _lineDelay.Enabled = _chkLineDelay.Checked;
@@ -263,9 +275,9 @@ namespace RSPaster
             tip.SetToolTip(_chkLineDelay, lineDelayHelp);
             tip.SetToolTip(_lineDelay, lineDelayHelp);
 
-            _chkEnterAtEnd = MakeCheck("Press Enter at end", 0, 82, _settings.EnterAtEnd);
-            _chkClearAfter = MakeCheck("Clear after typing", 148, 82, _settings.ClearAfter);
-            _chkOnTop = MakeCheck("Always on top", 296, 82, _settings.AlwaysOnTop);
+            _chkEnterAtEnd = MakeCheck("Press Enter at end", _settings.EnterAtEnd);
+            _chkClearAfter = MakeCheck("Clear after typing", _settings.ClearAfter);
+            _chkOnTop = MakeCheck("Always on top", _settings.AlwaysOnTop);
             _chkOnTop.CheckedChanged += delegate(object s, EventArgs e)
             {
                 TopMost = _chkOnTop.Checked;
@@ -274,9 +286,11 @@ namespace RSPaster
             _btnGo = new ThemedButton();
             _btnGo.Primary = true;
             _btnGo.Font = new Font("Segoe UI", 9.75F, FontStyle.Bold);
-            _btnGo.SetBounds(0, 110, 100, 36);
+            _btnGo.SetBounds(0, Dpi.S(110), Dpi.S(100), Dpi.S(36));
             _btnGo.Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top;
             _btnGo.Click += delegate(object s, EventArgs e) { StartOrCancel(); };
+
+            LayoutBottom();
 
             _bottom.Controls.Add(_lblStart);
             _bottom.Controls.Add(_startDelay);
@@ -292,7 +306,7 @@ namespace RSPaster
             _bottom.Controls.Add(_btnGo);
             _bottom.Resize += delegate(object s, EventArgs e)
             {
-                _btnGo.Width = Math.Max(120, _bottom.Width);
+                _btnGo.Width = Math.Max(Dpi.S(120), _bottom.Width);
             };
 
             _content.Controls.Add(_txtHost);
@@ -307,27 +321,62 @@ namespace RSPaster
             _syncing = false;
         }
 
-        Label MakeLabel(string text, int x, int y)
+        Label MakeLabel(string text)
         {
             Label l = new Label();
+            // Font before Text: an unparented control measures with
+            // Control.DefaultFont otherwise, and AutoSize bakes that in.
+            l.Font = Font;
             l.Text = text;
             l.AutoSize = true;
-            l.Location = new Point(x, y);
             return l;
         }
 
-        ThemedCheck MakeCheck(string text, int x, int y, bool chk)
+        ThemedCheck MakeCheck(string text, bool chk)
         {
             ThemedCheck c = new ThemedCheck();
-            // Set the font before measuring: a control not yet added to a parent
-            // still carries Control.DefaultFont, which is narrower than the form
-            // font it will inherit, and the label paints clipped.
             c.Font = Font;
             c.Text = text;
             c.Checked = chk;
-            c.Location = new Point(x, y);
             c.SizeToText();
             return c;
+        }
+
+        // Every control is placed after the one before it, so a wider font, a
+        // different DPI, or a reworded label pushes its neighbors along instead
+        // of colliding with them.
+        void LayoutBottom()
+        {
+            int gapS = Dpi.S(8);    // label to its own field
+            int gapL = Dpi.S(18);   // between groups
+            int spinW = Dpi.S(64);
+            int spinH = Dpi.S(27);
+            int row1 = Dpi.S(10);
+            int row2 = Dpi.S(45);
+            int row3 = Dpi.S(82);
+
+            _startDelay.Size = new Size(spinW, spinH);
+            _keyDelay.Size = new Size(spinW, spinH);
+            _lineDelay.Size = new Size(spinW, spinH);
+
+            _lblStart.Location = new Point(0, Middle(row1, spinH, _lblStart.Height));
+            _startDelay.Location = new Point(_lblStart.Right + gapS, row1);
+            _lblKey.Location = new Point(_startDelay.Right + gapL, Middle(row1, spinH, _lblKey.Height));
+            _keyDelay.Location = new Point(_lblKey.Right + gapS, row1);
+            _chkUnicode.Location = new Point(_keyDelay.Right + gapL, Middle(row1, spinH, _chkUnicode.Height));
+
+            _chkLineDelay.Location = new Point(0, Middle(row2, spinH, _chkLineDelay.Height));
+            _lineDelay.Location = new Point(_chkLineDelay.Right + gapS, row2);
+            _lblLineUnit.Location = new Point(_lineDelay.Right + gapS, Middle(row2, spinH, _lblLineUnit.Height));
+
+            _chkEnterAtEnd.Location = new Point(0, row3);
+            _chkClearAfter.Location = new Point(_chkEnterAtEnd.Right + gapL, row3);
+            _chkOnTop.Location = new Point(_chkClearAfter.Right + gapL, row3);
+        }
+
+        static int Middle(int rowTop, int rowHeight, int controlHeight)
+        {
+            return rowTop + (rowHeight - controlHeight) / 2;
         }
 
         void BuildThemeMenu()
@@ -384,8 +433,10 @@ namespace RSPaster
         {
             ToolStripMenuItem item = (ToolStripMenuItem)sender;
             Th.Set((string)item.Tag);
-            _settings.Theme = (string)item.Tag;
-            _settings.Save();
+            // SaveSettings, not _settings.Save(): the settings object still
+            // holds startup values, and writing it directly would revert any
+            // delay or checkbox the user changed since launch.
+            SaveSettings();
         }
 
         void BuildTray()
@@ -476,6 +527,12 @@ namespace RSPaster
 
         // ---- window / tray behaviour ---------------------------------------
 
+        protected override void OnShown(EventArgs e)
+        {
+            base.OnShown(e);
+            LayoutStatusBar();   // _lnkAdmin.Width is only final once shown
+        }
+
         protected override void OnHandleCreated(EventArgs e)
         {
             base.OnHandleCreated(e);
@@ -539,8 +596,10 @@ namespace RSPaster
 
         void HideToTray(bool announce)
         {
+            // Hide() alone removes the taskbar button; toggling ShowInTaskbar
+            // would recreate the window handle each way, unregistering and
+            // re-registering the hotkey and reapplying the OS chrome for nothing.
             Hide();
-            ShowInTaskbar = false;
             if (announce && !_trayHintShown)
             {
                 _trayHintShown = true;
@@ -554,7 +613,6 @@ namespace RSPaster
 
         void RestoreWindow()
         {
-            ShowInTaskbar = true;
             Show();
             WindowState = FormWindowState.Normal;
             Activate();
@@ -809,6 +867,12 @@ namespace RSPaster
 
         public static void Run()
         {
+            // DPI awareness and the layout scale ship together: awareness
+            // alone would render the fixed-pixel layout tiny at 150%, which is
+            // worse than the blur it removes. Both must precede the first window.
+            try { Native.SetProcessDPIAware(); }
+            catch (EntryPointNotFoundException) { }
+            Dpi.Init();
             Application.EnableVisualStyles();
             try { Application.SetCompatibleTextRenderingDefault(false); }
             catch (InvalidOperationException) { }   // a control already exists (Add-Type host)

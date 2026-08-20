@@ -58,13 +58,25 @@ namespace RSPaster
         }
 
         public const uint INPUT_KEYBOARD = 1;
+        public const uint KEYEVENTF_EXTENDEDKEY = 0x0001;
         public const uint KEYEVENTF_KEYUP = 0x0002;
         public const uint KEYEVENTF_UNICODE = 0x0004;
+
+        [DllImport("user32.dll")]
+        public static extern short GetAsyncKeyState(int vKey);
+
+        [DllImport("user32.dll")]
+        public static extern bool SetProcessDPIAware();
 
         [DllImport("user32.dll", SetLastError = true)]
         public static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
 
-        [DllImport("user32.dll")]
+        // CharSet.Unicode is load-bearing: DllImport defaults to ANSI, which
+        // marshals this char through the system code page. A character outside
+        // it (Greek, box drawing, checkmarks) became '?', which VkKeyScanExA
+        // happily resolved to the question-mark key - so instead of the unicode
+        // fallback the target received a literal '?'.
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
         public static extern short VkKeyScanEx(char ch, IntPtr dwhkl);
 
         [DllImport("user32.dll")]
@@ -145,9 +157,13 @@ namespace RSPaster
     public static class KeySender
     {
         const ushort VK_SHIFT = 0x10;
+        const ushort VK_CONTROL = 0x11;
+        const ushort VK_MENU = 0x12;
         const ushort VK_RETURN = 0x0D;
         const ushort VK_TAB = 0x09;
         const ushort SCAN_LSHIFT = 0x2A;
+        const ushort SCAN_LCONTROL = 0x1D;
+        const ushort SCAN_RALT = 0x38;   // with the extended bit: right Alt / AltGr
 
         // Types 'text' into the focused window. Newlines become Enter, tabs
         // become Tab. In scancode mode each character is mapped through the
@@ -163,6 +179,16 @@ namespace RSPaster
             int total = text.Length;
 
             Func<bool> cancelled = o.Cancelled;
+
+            // With a start delay of 0 and the hotkey, the user's fingers are
+            // still on Ctrl+Alt+V when typing begins, so the first injected
+            // keys arrive at the target as Ctrl+Alt chords - shortcuts, killed
+            // commands. Hold until the physical keys are up before sending.
+            if (!WaitForKeysUp(cancelled))
+            {
+                result.Cancelled = true;
+                return result;
+            }
             Action<int, int> progress = o.Progress;
             bool unicodeMode = o.UnicodeMode;
             int perKeyDelayMs = o.PerKeyDelayMs;
@@ -206,12 +232,23 @@ namespace RSPaster
                     else
                     {
                         int shiftState = (vks >> 8) & 0xFF;
-                        // Bit 0 = Shift, bit 1 = Ctrl, bit 2 = Alt. Anything
-                        // past plain Shift (AltGr combos) is safer as unicode.
-                        if ((shiftState & ~1) != 0)
-                            ok = SendUnicode(c);
-                        else
+                        // Bit 0 = Shift, bit 1 = Ctrl, bit 2 = Alt.
+                        if ((shiftState & ~1) == 0)
+                        {
                             ok = SendVk((ushort)(vks & 0xFF), shiftState == 1, hkl);
+                        }
+                        else if ((shiftState & 6) == 6)
+                        {
+                            // Ctrl+Alt together is AltGr: on European layouts
+                            // that is @ { } [ ] \ | ~ and more. Sent as a real
+                            // AltGr scancode chord, because the KVM consoles
+                            // this tool exists for ignore unicode events.
+                            ok = SendAltGr((ushort)(vks & 0xFF), (shiftState & 1) != 0, hkl);
+                        }
+                        else
+                        {
+                            ok = SendUnicode(c);
+                        }
                     }
                 }
 
@@ -269,6 +306,50 @@ namespace RSPaster
             return Send(events.ToArray());
         }
 
+        // A physical AltGr press emits LControl (0x1D) followed by the extended
+        // right Alt (E0 0x38); this mirrors that exactly, so a console that
+        // forwards raw scancodes hands the guest the same chord a real keyboard
+        // would have produced.
+        static bool SendAltGr(ushort vk, bool shift, IntPtr hkl)
+        {
+            ushort scan = (ushort)Native.MapVirtualKeyEx(vk, 0 /* MAPVK_VK_TO_VSC */, hkl);
+            List<Native.INPUT> events = new List<Native.INPUT>(8);
+            events.Add(KeyEvent(VK_CONTROL, SCAN_LCONTROL, false));
+            events.Add(KeyEvent(VK_MENU, SCAN_RALT, false, true));
+            if (shift) events.Add(KeyEvent(VK_SHIFT, SCAN_LSHIFT, false));
+            events.Add(KeyEvent(vk, scan, false));
+            events.Add(KeyEvent(vk, scan, true));
+            if (shift) events.Add(KeyEvent(VK_SHIFT, SCAN_LSHIFT, true));
+            events.Add(KeyEvent(VK_MENU, SCAN_RALT, true, true));
+            events.Add(KeyEvent(VK_CONTROL, SCAN_LCONTROL, true));
+            return Send(events.ToArray());
+        }
+
+        // Blocks until Shift, Ctrl, Alt, Win and V are all physically up, so a
+        // hotkey trigger with no start delay cannot mix the user's own held
+        // modifiers into the injected stream. The timeout covers keys that
+        // report stuck (some KVM passthroughs): typing anyway beats hanging.
+        static bool WaitForKeysUp(Func<bool> cancelled)
+        {
+            int[] keys = { 0x10, 0x11, 0x12, 0x5B, 0x5C, 0x56 };
+            const int TIMEOUT_MS = 3000;
+            const int SLICE = 30;
+            int waited = 0;
+            while (waited < TIMEOUT_MS)
+            {
+                if (cancelled != null && cancelled()) return false;
+                bool held = false;
+                for (int i = 0; i < keys.Length; i++)
+                {
+                    if ((Native.GetAsyncKeyState(keys[i]) & 0x8000) != 0) { held = true; break; }
+                }
+                if (!held) return true;
+                Thread.Sleep(SLICE);
+                waited += SLICE;
+            }
+            return true;
+        }
+
         static bool SendUnicode(char c)
         {
             Native.INPUT[] events = new Native.INPUT[2];
@@ -279,11 +360,17 @@ namespace RSPaster
 
         static Native.INPUT KeyEvent(ushort vk, ushort scan, bool up)
         {
+            return KeyEvent(vk, scan, up, false);
+        }
+
+        static Native.INPUT KeyEvent(ushort vk, ushort scan, bool up, bool extended)
+        {
             Native.INPUT input = new Native.INPUT();
             input.type = Native.INPUT_KEYBOARD;
             input.U.ki.wVk = vk;
             input.U.ki.wScan = scan;
-            input.U.ki.dwFlags = up ? Native.KEYEVENTF_KEYUP : 0;
+            input.U.ki.dwFlags = (up ? Native.KEYEVENTF_KEYUP : 0)
+                               | (extended ? Native.KEYEVENTF_EXTENDEDKEY : 0);
             return input;
         }
 

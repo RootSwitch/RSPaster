@@ -1,4 +1,4 @@
-// Owner-drawn controls that follow the Canvas Suite design language: flat
+﻿// Owner-drawn controls that follow the Canvas Suite design language: flat
 // components, 1px borders, 4-6px radii, accent-colored focus, no gradients.
 //
 // WinForms will not theme its stock chrome - a NumericUpDown keeps system
@@ -17,6 +17,28 @@ using System.Windows.Forms;
 
 namespace RSPaster
 {
+    // The one DPI scale factor, sampled once at startup after the process
+    // declares itself DPI-aware. Every hand-placed pixel dimension goes through
+    // S(). Declaring awareness without scaling the layout would trade "blurry
+    // at 150%" for "tiny at 150%", which is worse; the two ship together.
+    public static class Dpi
+    {
+        public static double Factor = 1.0;
+
+        public static void Init()
+        {
+            IntPtr screen = IntPtr.Zero;
+            using (Graphics g = Graphics.FromHwnd(screen))
+                Factor = g.DpiX / 96.0;
+            if (Factor < 1.0) Factor = 1.0;
+        }
+
+        public static int S(int logicalPx)
+        {
+            return (int)Math.Round(logicalPx * Factor);
+        }
+    }
+
     public static class Draw
     {
         public static GraphicsPath Round(Rectangle r, int radius)
@@ -83,6 +105,11 @@ namespace RSPaster
             // changes what is displayed, never what is sent.
             if (m.Msg == WM_PASTE)
             {
+                // Setting SelectedText ignores ReadOnly, so without this check
+                // Ctrl+V could edit the text mid-run while typing is active -
+                // exactly when the box is locked. The native EDIT control
+                // refuses pastes when read-only; so do we.
+                if (ReadOnly) return;
                 string text = null;
                 try
                 {
@@ -159,8 +186,8 @@ namespace RSPaster
     // 29 palettes, which a two-state OS scrollbar could never do.
     public class ThemedScrollBar : Control
     {
-        const int MIN_THUMB = 24;
-        const int PAD = 2;
+        static int MinThumb { get { return Dpi.S(24); } }
+        static int Pad { get { return Dpi.S(2); } }
 
         int _max = 1;
         int _large = 1;
@@ -175,7 +202,7 @@ namespace RSPaster
         {
             SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint |
                      ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
-            Width = 12;
+            Width = Dpi.S(12);
             Th.Changed += OnThemeChanged;
         }
 
@@ -200,14 +227,14 @@ namespace RSPaster
         bool Scrollable { get { return _max > _large; } }
         int Clamp(int v) { return v < 0 ? 0 : (v > MaxValue ? MaxValue : v); }
 
-        int TrackHeight { get { return Math.Max(1, Height - PAD * 2); } }
+        int TrackHeight { get { return Math.Max(1, Height - Pad * 2); } }
 
         int ThumbHeight
         {
             get
             {
                 if (!Scrollable) return 0;
-                return Math.Max(MIN_THUMB, (int)((long)TrackHeight * _large / _max));
+                return Math.Max(MinThumb, (int)((long)TrackHeight * _large / _max));
             }
         }
 
@@ -215,8 +242,8 @@ namespace RSPaster
         {
             get
             {
-                if (MaxValue <= 0) return PAD;
-                return PAD + (int)((long)(TrackHeight - ThumbHeight) * _value / MaxValue);
+                if (MaxValue <= 0) return Pad;
+                return Pad + (int)((long)(TrackHeight - ThumbHeight) * _value / MaxValue);
             }
         }
 
@@ -244,7 +271,7 @@ namespace RSPaster
             {
                 int span = TrackHeight - ThumbHeight;
                 if (span > 0)
-                    SetValue((int)((long)(e.Y - _dragOffset - PAD) * MaxValue / span));
+                    SetValue((int)((long)(e.Y - _dragOffset - Pad) * MaxValue / span));
             }
             base.OnMouseMove(e);
         }
@@ -278,8 +305,8 @@ namespace RSPaster
 
             Color thumb = (_hover || _dragging) ? t.Accent : Th.Mix(t.Input, t.TxtDim, 0.55);
             Draw.FillRound(e.Graphics,
-                new Rectangle(PAD, ThumbTop, Width - PAD * 2, ThumbHeight),
-                (Width - PAD * 2) / 2, thumb);
+                new Rectangle(Pad, ThumbTop, Width - Pad * 2, ThumbHeight),
+                (Width - Pad * 2) / 2, thumb);
         }
     }
 
@@ -395,8 +422,8 @@ namespace RSPaster
     // input[type=checkbox] { accent-color: var(--se-accent); width:15px; height:15px }
     public class ThemedCheck : CheckBox
     {
-        const int BOX = 15;
-        const int GAP = 8;
+        static int Box { get { return Dpi.S(15); } }
+        static int Gap { get { return Dpi.S(8); } }
         bool _hover;
 
         public ThemedCheck()
@@ -425,7 +452,7 @@ namespace RSPaster
         {
             Size s = TextRenderer.MeasureText(Text, Font, new Size(int.MaxValue, int.MaxValue),
                 TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
-            Size = new Size(BOX + GAP + s.Width + 6, Math.Max(BOX + 4, s.Height + 6));
+            Size = new Size(Box + Gap + s.Width + Dpi.S(6), Math.Max(Box + 4, s.Height + Dpi.S(6)));
         }
 
         protected override void OnPaint(PaintEventArgs e)
@@ -435,8 +462,8 @@ namespace RSPaster
             using (SolidBrush bg = new SolidBrush(Parent != null ? Parent.BackColor : t.Panel))
                 e.Graphics.FillRectangle(bg, ClientRectangle);
 
-            int top = (Height - BOX) / 2;
-            Rectangle box = new Rectangle(0, top, BOX, BOX);
+            int top = (Height - Box) / 2;
+            Rectangle box = new Rectangle(0, top, Box, Box);
             Color border = Checked ? t.Accent : (_hover && Enabled ? t.Accent : t.Border);
             Color fill = Checked ? t.Accent : t.Input;
             if (!Enabled)
@@ -448,19 +475,21 @@ namespace RSPaster
 
             if (Checked)
             {
-                using (Pen pen = new Pen(Th.OnColor(t.Accent), 2f))
+                // Glyph geometry in fifteenths of the box, so it scales with it.
+                float u = box.Width / 15f;
+                using (Pen pen = new Pen(Th.OnColor(t.Accent), Math.Max(2f, 2f * u)))
                 {
                     pen.StartCap = LineCap.Round;
                     pen.EndCap = LineCap.Round;
-                    e.Graphics.DrawLines(pen, new Point[] {
-                        new Point(box.Left + 3, box.Top + 7),
-                        new Point(box.Left + 6, box.Top + 10),
-                        new Point(box.Left + 11, box.Top + 4)
+                    e.Graphics.DrawLines(pen, new PointF[] {
+                        new PointF(box.Left + 3 * u, box.Top + 7 * u),
+                        new PointF(box.Left + 6 * u, box.Top + 10 * u),
+                        new PointF(box.Left + 11 * u, box.Top + 4 * u)
                     });
                 }
             }
 
-            Rectangle textRect = new Rectangle(BOX + GAP, 0, Width - BOX - GAP, Height);
+            Rectangle textRect = new Rectangle(Box + Gap, 0, Width - Box - Gap, Height);
             TextRenderer.DrawText(e.Graphics, Text, Font, textRect,
                 Enabled ? t.Txt : t.TxtDim,
                 TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
@@ -471,14 +500,38 @@ namespace RSPaster
     // spin buttons render in system colors no matter what you set.
     public class SpinBox : Control
     {
-        const int ARROW_W = 18;
+        static int ArrowW { get { return Dpi.S(18); } }
 
         TextBox _box;
         int _min = 0;
         int _max = 100;
         int _hoverArrow;   // 0 none, 1 up, 2 down
+        bool _enabled = true;
 
         public event EventHandler ValueChanged;
+
+        // Hides Control.Enabled on purpose. Truly disabling the control
+        // disables the child TextBox, and a disabled EDIT ignores BackColor
+        // and paints system gray - a bright hole in 20 of the 29 palettes.
+        // Instead the child stays enabled but read-only, and the chrome is
+        // painted dimmed.
+        public new bool Enabled
+        {
+            get { return _enabled; }
+            set
+            {
+                _enabled = value;
+                if (_box != null)
+                {
+                    _box.ReadOnly = !value;
+                    _box.TabStop = value;
+                    _box.ForeColor = value ? Th.T.Txt : Th.T.TxtDim;
+                    _box.BackColor = Th.T.Input;   // re-assert: ReadOnly toggles reset it
+                }
+                TabStop = value;
+                Invalidate();
+            }
+        }
 
         public SpinBox(int min, int max, int value)
         {
@@ -503,7 +556,7 @@ namespace RSPaster
         void OnThemeChanged(object sender, EventArgs e)
         {
             _box.BackColor = Th.T.Input;
-            _box.ForeColor = Th.T.Txt;
+            _box.ForeColor = _enabled ? Th.T.Txt : Th.T.TxtDim;
             Invalidate();
         }
 
@@ -517,6 +570,14 @@ namespace RSPaster
         {
             get { return base.Font; }
             set { base.Font = value; if (_box != null) { _box.Font = value; Relayout(); } }
+        }
+
+        // The form font arrives ambiently after parenting, which skips the
+        // setter above - sync the child here too.
+        protected override void OnFontChanged(EventArgs e)
+        {
+            base.OnFontChanged(e);
+            if (_box != null) { _box.Font = Font; Relayout(); }
         }
 
         public int Value
@@ -562,14 +623,16 @@ namespace RSPaster
         {
             if (_box == null) return;
             int h = _box.PreferredHeight;
-            _box.SetBounds(7, Math.Max(1, (Height - h) / 2), Math.Max(10, Width - ARROW_W - 9), h);
+            _box.SetBounds(Dpi.S(7), Math.Max(1, (Height - h) / 2),
+                           Math.Max(10, Width - ArrowW - Dpi.S(9)), h);
         }
 
         protected override void OnMouseMove(MouseEventArgs e)
         {
+            if (!_enabled) return;
             int was = _hoverArrow;
             _hoverArrow = 0;
-            if (e.X >= Width - ARROW_W - 1)
+            if (e.X >= Width - ArrowW - 1)
                 _hoverArrow = e.Y < Height / 2 ? 1 : 2;
             if (was != _hoverArrow) Invalidate();
             base.OnMouseMove(e);
@@ -583,7 +646,8 @@ namespace RSPaster
 
         protected override void OnMouseDown(MouseEventArgs e)
         {
-            if (e.X >= Width - ARROW_W - 1)
+            if (!_enabled) return;
+            if (e.X >= Width - ArrowW - 1)
             {
                 Value = Value + (e.Y < Height / 2 ? 1 : -1);
                 _box.Focus();
@@ -594,22 +658,30 @@ namespace RSPaster
 
         protected override void OnMouseWheel(MouseEventArgs e)
         {
-            if (_box.Focused) Value = Value + (e.Delta > 0 ? 1 : -1);
+            if (_enabled && _box.Focused) Value = Value + (e.Delta > 0 ? 1 : -1);
             base.OnMouseWheel(e);
         }
 
         protected override void OnPaint(PaintEventArgs e)
         {
             Theme t = Th.T;
+            Color back = Parent != null ? Parent.BackColor : t.Panel;
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            using (SolidBrush bg = new SolidBrush(Parent != null ? Parent.BackColor : t.Panel))
+            using (SolidBrush bg = new SolidBrush(back))
                 e.Graphics.FillRectangle(bg, ClientRectangle);
-            Draw.FillBorderRound(e.Graphics, ClientRectangle, 4, t.Input,
-                                 _box.Focused ? t.Accent : t.Border);
 
-            int cx = Width - ARROW_W / 2 - 3;
-            DrawArrow(e.Graphics, cx, Height / 2 - 5, true, _hoverArrow == 1 ? t.Accent : t.TxtDim);
-            DrawArrow(e.Graphics, cx, Height / 2 + 5, false, _hoverArrow == 2 ? t.Accent : t.TxtDim);
+            // Disabled = same shapes, everything blended toward the panel,
+            // mirroring the 0.5-opacity treatment the suite gives buttons.
+            Color border = _enabled ? (_box.Focused ? t.Accent : t.Border)
+                                    : Th.Mix(t.Border, back, 0.5);
+            Color fill = _enabled ? t.Input : Th.Mix(t.Input, back, 0.5);
+            Draw.FillBorderRound(e.Graphics, ClientRectangle, 4, fill, border);
+
+            Color arrowIdle = _enabled ? t.TxtDim : Th.Mix(t.TxtDim, back, 0.5);
+            int cx = Width - ArrowW / 2 - Dpi.S(3);
+            int gap = Dpi.S(5);
+            DrawArrow(e.Graphics, cx, Height / 2 - gap, true, _hoverArrow == 1 && _enabled ? t.Accent : arrowIdle);
+            DrawArrow(e.Graphics, cx, Height / 2 + gap, false, _hoverArrow == 2 && _enabled ? t.Accent : arrowIdle);
         }
 
         static void DrawArrow(Graphics g, int cx, int cy, bool up, Color color)
