@@ -77,10 +77,24 @@ namespace RSPaster
 
             if (IsElevated()) _baseTitle += " [Admin]";
             Text = _baseTitle;
+            // Layout is scaled by hand through Dpi.S(), so WinForms must not
+            // scale it a second time. Left at its default the container would
+            // apply its own font-based factor on top, and at 150% the window
+            // comes out at 2.25x: controls off the edge, text clipped.
+            AutoScaleMode = AutoScaleMode.None;
+
+            // At a high scale on a small panel the scaled defaults can exceed
+            // the screen, and a MinimumSize taller than the work area leaves a
+            // window that cannot be resized back into view.
+            Rectangle work = Screen.PrimaryScreen.WorkingArea;
+            MinimumSize = new Size(
+                Math.Min(Dpi.S(520), work.Width),
+                Math.Min(Dpi.S(500), work.Height));
             ClientSize = new Size(
-                _settings.WindowWidth >= Dpi.S(520) ? _settings.WindowWidth : Dpi.S(600),
-                _settings.WindowHeight >= Dpi.S(500) ? _settings.WindowHeight : Dpi.S(530));
-            MinimumSize = new Size(Dpi.S(520), Dpi.S(500));
+                Math.Min(_settings.WindowWidth >= Dpi.S(520) ? _settings.WindowWidth : Dpi.S(600),
+                         work.Width - Dpi.S(40)),
+                Math.Min(_settings.WindowHeight >= Dpi.S(500) ? _settings.WindowHeight : Dpi.S(530),
+                         work.Height - Dpi.S(60)));
             StartPosition = FormStartPosition.CenterScreen;
             KeyPreview = true;
             TopMost = _settings.AlwaysOnTop;
@@ -197,7 +211,7 @@ namespace RSPaster
             if (_showAdminLink)
             {
                 _lnkAdmin.Location = new Point(_statusBar.Width - _lnkAdmin.Width - Dpi.S(11), Dpi.S(5));
-                _lblStatus.Size = new Size(Math.Max(80, _lnkAdmin.Left - Dpi.S(20)), Dpi.S(24));
+                _lblStatus.Size = new Size(Math.Max(Dpi.S(80), _lnkAdmin.Left - Dpi.S(20)), Dpi.S(24));
             }
             else
             {
