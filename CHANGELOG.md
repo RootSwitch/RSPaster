@@ -2,6 +2,29 @@
 
 ## Unreleased
 
+**A 1px line along the top and left of every owner-drawn control.** Each paint
+method set `SmoothingMode.AntiAlias` before filling its background, and GDI+
+anti-aliases the edges of a filled rectangle: the first row and column came out
+at roughly half coverage, letting whatever was underneath show through. The
+background fill is now done with smoothing off, and anti-aliasing is switched
+on afterwards for the rounded shapes that actually need it.
+
+Measured rather than guessed: filling the checkbox background with pure lime
+produced `#008000` on the top row and `#004000` in the corner - exactly 50% and
+25% coverage - which is what named anti-aliasing as the cause rather than a
+stale repaint.
+
+It also explains why the artifact behaved so strangely. It only appeared on the
+first paint of a control, because blending the correct color 50% over itself
+gives the correct color, so any later repaint erased it permanently: hovering
+made it vanish and nothing would bring it back. And it was far more obvious on
+the Paper and Warm palettes, where the half-covered row contrasts hardest
+against a light panel.
+
+Affected `InputHost`, `ThemedButton`, `ThemedCheck`, `SpinBox` and
+`ThemedScrollBar`.
+
+
 **Tooltips left stray dark edges behind and flickered at random.** The ToolTip
 was a local variable. It is a Component, not a child control, so nothing else
 held a reference: it became garbage as soon as the method returned, and

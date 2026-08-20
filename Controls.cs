@@ -298,9 +298,17 @@ namespace RSPaster
         protected override void OnPaint(PaintEventArgs e)
         {
             Theme t = Th.T;
-            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            // The background fill must NOT be anti-aliased. GDI+ anti-aliases
+            // the edges of a filled rectangle, so the first row and column come
+            // out at partial coverage and whatever was underneath bleeds through
+            // as a 1px line along the top and left of the control. It only shows
+            // on the first paint, because painting the right color over itself
+            // blends to the same color - which is why it vanished on hover and
+            // could not be brought back.
+            e.Graphics.SmoothingMode = SmoothingMode.None;
             using (SolidBrush b = new SolidBrush(t.Input))
                 e.Graphics.FillRectangle(b, ClientRectangle);
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
             if (!Scrollable) return;
 
             Color thumb = (_hover || _dragging) ? t.Accent : Th.Mix(t.Input, t.TxtDim, 0.55);
@@ -350,9 +358,10 @@ namespace RSPaster
 
         protected override void OnPaint(PaintEventArgs e)
         {
-            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            e.Graphics.SmoothingMode = SmoothingMode.None;   // see the note in InputHost.OnPaint
             using (SolidBrush b = new SolidBrush(Parent != null ? Parent.BackColor : Th.T.Panel))
                 e.Graphics.FillRectangle(b, ClientRectangle);
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
             Draw.FillBorderRound(e.Graphics, ClientRectangle, 4, Th.T.Input,
                                  _focused ? Th.T.Accent : Th.T.Border);
         }
@@ -386,9 +395,10 @@ namespace RSPaster
         protected override void OnPaint(PaintEventArgs e)
         {
             Theme t = Th.T;
-            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            e.Graphics.SmoothingMode = SmoothingMode.None;   // see the note in InputHost.OnPaint
             using (SolidBrush bg = new SolidBrush(Parent != null ? Parent.BackColor : t.Panel))
                 e.Graphics.FillRectangle(bg, ClientRectangle);
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
 
             Color fill, border, text;
             if (Primary)
@@ -458,9 +468,10 @@ namespace RSPaster
         protected override void OnPaint(PaintEventArgs e)
         {
             Theme t = Th.T;
-            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            e.Graphics.SmoothingMode = SmoothingMode.None;   // see the note in InputHost.OnPaint
             using (SolidBrush bg = new SolidBrush(Parent != null ? Parent.BackColor : t.Panel))
                 e.Graphics.FillRectangle(bg, ClientRectangle);
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
 
             int top = (Height - Box) / 2;
             Rectangle box = new Rectangle(0, top, Box, Box);
@@ -666,9 +677,10 @@ namespace RSPaster
         {
             Theme t = Th.T;
             Color back = Parent != null ? Parent.BackColor : t.Panel;
-            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            e.Graphics.SmoothingMode = SmoothingMode.None;   // see the note in InputHost.OnPaint
             using (SolidBrush bg = new SolidBrush(back))
                 e.Graphics.FillRectangle(bg, ClientRectangle);
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
 
             // Disabled = same shapes, everything blended toward the panel,
             // mirroring the 0.5-opacity treatment the suite gives buttons.
